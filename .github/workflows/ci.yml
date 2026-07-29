@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Test pushed code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install desktop system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libsoup-3.0-dev \
+            libwebkit2gtk-4.1-dev \
+            pkg-config
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.6.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install API dependencies
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install -e "apps/api[dev]"
+
+      - name: Check JavaScript formatting, lint, and types
+        run: pnpm check
+
+      - name: Test JavaScript packages
+        run: pnpm test:js
+
+      - name: Lint API
+        run: .venv/bin/ruff check apps/api
+
+      - name: Type-check API
+        run: .venv/bin/mypy --config-file apps/api/pyproject.toml apps/api/app
+
+      - name: Test API
+        run: .venv/bin/pytest apps/api
+
+      - name: Test desktop backend
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml

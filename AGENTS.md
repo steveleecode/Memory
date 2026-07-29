@@ -35,7 +35,7 @@ After completing and verifying a feature:
 - fix(auth): enforce per-user token isolation
 - test(api): add health endpoint coverage
 - docs(architecture): document local service setup
-- Confirm that the working tree contains no unintended changes before   beginning the next feature.
+- Confirm that the working tree contains no unintended changes before beginning the next feature.
 
 Do not begin another feature before committing the completed feature.
 

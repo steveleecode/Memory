@@ -245,6 +245,7 @@ Use these checks before treating architecture changes as complete:
 
 ```bash
 pnpm check
+pnpm test
 .venv/bin/ruff check apps/api
 .venv/bin/mypy --config-file apps/api/pyproject.toml apps/api/app
 .venv/bin/pytest apps/api

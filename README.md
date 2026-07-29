@@ -138,6 +138,7 @@ The CLI uses real Gemini embeddings through the backend process. The API key sta
 ## Checks
 
 ```bash
+pnpm test
 pnpm format:check
 pnpm lint
 pnpm typecheck
