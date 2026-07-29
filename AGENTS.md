@@ -95,6 +95,63 @@ Each Codex instance should:
 - Open a PR linked to the issue.
 - Do not begin another issue after finishing unless instructed.
 
+## Required Push and Pull Request
+
+Unless the user explicitly requests local-only work, a task that modifies the repository is **not complete** after creating a local Git commit.
+
+A task is only considered complete when all of the following have succeeded:
+
+- The feature has been committed.
+- The feature branch has been pushed to GitHub.
+- A GitHub pull request has been created.
+- The issue is linked in the pull request (for example, `Closes #123`).
+- The pull request URL is included in the final response.
+
+After creating the final commit, execute the following workflow:
+
+```bash
+BRANCH="$(git branch --show-current)"
+
+git push --set-upstream origin "$BRANCH"
+
+gh pr create \
+  --fill \
+  --head "$BRANCH"
+```
+
+If `gh pr create` requires additional information, provide it non-interactively using the appropriate flags (`--title`, `--body`, `--base`, `--head`, `--draft`, etc.). Do **not** stop because the command is interactive.
+
+If the branch has not yet been pushed, push it before attempting to create a pull request.
+
+If `git push` or `gh pr create` fails:
+
+- Read and diagnose the exact error.
+- Attempt reasonable fixes (authentication, upstream branch, remote configuration, etc.).
+- If the error cannot be resolved, report the exact blocker.
+- Do **not** report the task as complete without a successfully created pull request.
+
+The final response for every completed GitHub issue must include:
+
+- Branch name
+- Commit SHA
+- Pull request URL
+- Tests/checks that were run
+- Any remaining known limitations
+
+## CI Failure Investigation
+
+When assigned a CI failure:
+
+- Use `gh run view <run-id> --log-failed` to inspect failed logs.
+- Inspect the exact commit that triggered the failure.
+- Reproduce the failing command locally when possible.
+- Identify the root cause before editing code.
+- Make the smallest correct change.
+- Never disable, skip, loosen, or delete a legitimate test solely to pass CI.
+- Run all directly affected tests, lint checks, and type checks.
+- Commit the completed fix and open a draft pull request.
+- Include the workflow run URL and failure explanation in the pull request.
+
 ## Commands
 
 - Install JS dependencies: `pnpm install`
