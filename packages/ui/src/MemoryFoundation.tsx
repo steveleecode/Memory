@@ -1558,7 +1558,7 @@ function SpatialView({
   );
 }
 
-class SpatialRenderBoundary extends Component<
+export class SpatialRenderBoundary extends Component<
   { children: ReactNode; fallback: ReactNode; resetKey: string },
   { hasError: boolean }
 > {

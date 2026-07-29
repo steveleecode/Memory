@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Annotated
 
@@ -16,6 +17,7 @@ from app.ingestion.embeddings import (
 from app.search.service import semantic_search, text_search
 
 router = APIRouter(prefix="/search", tags=["search"])
+logger = logging.getLogger(__name__)
 
 
 class SearchRequest(BaseModel):
@@ -43,11 +45,12 @@ def get_embedding_provider(
 async def search(
     request: SearchRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
-    embedding_provider: Annotated[EmbeddingProvider, Depends(get_embedding_provider)],
     authenticated: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> SearchResponse:
     require_matching_user(authenticated, request.user_id)
     try:
+        embedding_provider = get_embedding_provider(settings)
         results = await semantic_search(
             session=session,
             embedding_provider=embedding_provider,
@@ -55,7 +58,11 @@ async def search(
             query=request.query,
             limit=request.limit,
         )
-    except EmbeddingProviderError:
+    except (EmbeddingProviderError, ValueError):
+        logger.warning(
+            "Semantic embedding provider unavailable; using text search fallback",
+            exc_info=True,
+        )
         results = await text_search(
             session=session,
             user_id=authenticated.id,

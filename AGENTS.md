@@ -57,18 +57,20 @@ The GitHub CLI (`gh`) is installed and authenticated.
 Before beginning work:
 
 1. Run `gh issue list` to view open issues.
-2. Claim the issue you are working on by commenting on it.
-3. Read the complete issue with:
+2. Select the issue that matches the user-assigned work. If no open issue matches a direct user request, record that no applicable issue exists and proceed without claiming an unrelated issue.
+3. Claim the issue you are working on by commenting on it when an applicable issue exists.
+4. Read the complete issue with:
    ```bash
    gh issue view <issue-number>
    ```
-4. Treat the GitHub issue description as the implementation specification.
-5. If requirements are unclear, ask for clarification instead of guessing.
+5. Treat the GitHub issue description as the implementation specification when an applicable issue exists. For directly assigned no-issue work, treat the user's request as the implementation specification.
+6. If requirements are unclear, ask for clarification instead of guessing.
 
 When implementing:
 
 - Reference the issue number in commits.
-- Create a dedicated branch:
+- Reference `no-issue` in commits when directly assigned work has no applicable issue.
+- Create a dedicated branch for new issue work:
   ```bash
   git checkout -b issue-<number>-short-description
   ```
@@ -81,8 +83,8 @@ When implementing:
 
 After completion:
 
-- Comment on the issue summarizing what was implemented.
-- Link the PR to the issue.
+- Comment on the issue summarizing what was implemented when an applicable issue exists.
+- Link the PR to the issue when an applicable issue exists.
 
 ## Parallel Development
 
@@ -104,7 +106,7 @@ A task is only considered complete when all of the following have succeeded:
 - The feature has been committed.
 - The feature branch has been pushed to GitHub.
 - A GitHub pull request has been created.
-- The issue is linked in the pull request (for example, `Closes #123`).
+- The issue is linked in the pull request (for example, `Closes #123`) when an applicable issue exists, or the pull request clearly states that it is directly assigned no-issue work.
 - The pull request URL is included in the final response.
 
 After creating the final commit, execute the following workflow:

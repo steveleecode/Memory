@@ -67,7 +67,7 @@ async def semantic_search(
                     semantic_matches.excerpts
                 FROM semantic_matches
                 JOIN documents d ON d.id = semantic_matches.document_id
-                JOIN sources s ON s.id = d.source_id
+                JOIN sources s ON s.id = d.source_id AND s.user_id = :user_id
                 WHERE d.user_id = :user_id
                   AND d.status != 'deleted'
                 ORDER BY
@@ -107,13 +107,7 @@ async def text_search(
                                 plainto_tsquery('english', :query)
                             )
                         ) AS text_rank,
-                        array_agg(
-                            dc.text
-                            ORDER BY ts_rank_cd(
-                                to_tsvector('english', dc.text),
-                                plainto_tsquery('english', :query)
-                            ) DESC
-                        ) AS excerpts
+                        COUNT(*) AS matching_chunk_count
                     FROM document_chunks dc
                     WHERE dc.user_id = :user_id
                       AND to_tsvector('english', dc.text) @@ plainto_tsquery('english', :query)
@@ -129,10 +123,10 @@ async def text_search(
                     s.display_name AS source_display_name,
                     s.source_metadata,
                     text_matches.text_rank,
-                    text_matches.excerpts
+                    text_matches.matching_chunk_count
                 FROM text_matches
                 JOIN documents d ON d.id = text_matches.document_id
-                JOIN sources s ON s.id = d.source_id
+                JOIN sources s ON s.id = d.source_id AND s.user_id = :user_id
                 WHERE d.user_id = :user_id
                   AND d.status != 'deleted'
                 ORDER BY text_matches.text_rank DESC, d.updated_at DESC
@@ -187,9 +181,8 @@ def _row_to_result(row: Mapping[str, Any], query: str) -> SearchResult:
     )
 
 
-def _text_row_to_result(row: Mapping[str, Any], query: str) -> SearchResult:
+def _text_row_to_result(row: Mapping[str, Any], _query: str) -> SearchResult:
     text_score = min(float(row["text_rank"] or 0.0), 1.0)
-    excerpts = tuple(_excerpt(str(item), query) for item in list(row["excerpts"] or [])[:3])
     metadata = dict(row["document_metadata"] or {})
     source_metadata = {
         "kind": str(row["source_kind"]),
@@ -212,7 +205,7 @@ def _text_row_to_result(row: Mapping[str, Any], query: str) -> SearchResult:
         title=str(row["title"]),
         type=row["mime_type"],
         score=round(text_score, 6),
-        matching_excerpts=excerpts,
+        matching_excerpts=(),
         source_metadata=source_metadata,
         explanation={
             "semantic_score": 0.0,

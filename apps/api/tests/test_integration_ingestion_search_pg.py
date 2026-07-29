@@ -12,7 +12,7 @@ from app.ingestion.pipeline import ingest_document_content
 from app.models.document import Document, DocumentChunk
 from app.models.source import Source, SourceKind, SourceStatus
 from app.models.user import User
-from app.search.service import semantic_search
+from app.search.service import semantic_search, text_search
 
 pytestmark = pytest.mark.skipif(
     not os.getenv("MEMORY_INTEGRATION_DATABASE_URL"),
@@ -175,3 +175,105 @@ async def test_local_delete_removes_chunks_from_active_search() -> None:
 
     assert list(chunks) == []
     assert all(result.document_id != document.id for result in results)
+
+
+@pytest.mark.asyncio
+async def test_text_search_is_user_source_scoped_and_excludes_deleted_documents() -> None:
+    engine = create_async_engine(os.environ["MEMORY_INTEGRATION_DATABASE_URL"])
+    sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
+    settings = Settings(GEMINI_API_KEY="test")
+    provider = DeterministicTestEmbeddingProvider()
+    marker = uuid.uuid4().hex
+
+    async with sessionmaker() as session:
+        user = User(email=f"{marker}@memory.local")
+        other_user = User(email=f"{marker}-other@memory.local")
+        session.add_all([user, other_user])
+        await session.flush()
+        source = Source(
+            user_id=user.id,
+            kind=SourceKind.LOCAL_FOLDER,
+            status=SourceStatus.ACTIVE,
+            external_id=f"fixture-{marker}",
+            display_name="Fixture",
+            source_metadata={},
+        )
+        other_source = Source(
+            user_id=other_user.id,
+            kind=SourceKind.LOCAL_FOLDER,
+            status=SourceStatus.ACTIVE,
+            external_id=f"fixture-other-{marker}",
+            display_name="Other Fixture",
+            source_metadata={"private": True},
+        )
+        session.add_all([source, other_source])
+        await session.flush()
+        visible = Document(
+            user_id=user.id,
+            source_id=source.id,
+            external_id="visible.txt",
+            title="visible.txt",
+            document_metadata={},
+        )
+        mismatched_source = Document(
+            user_id=user.id,
+            source_id=other_source.id,
+            external_id="mismatched.txt",
+            title="mismatched.txt",
+            document_metadata={},
+        )
+        deleted = Document(
+            user_id=user.id,
+            source_id=source.id,
+            external_id="deleted.txt",
+            title="deleted.txt",
+            document_metadata={},
+        )
+        session.add_all([visible, mismatched_source, deleted])
+        await session.commit()
+
+        await ingest_document_content(
+            session=session,
+            settings=settings,
+            embedding_provider=provider,
+            document_id=visible.id,
+            filename="visible.txt",
+            content=b"needle memory fallback searchable content",
+            mime_type="text/plain",
+        )
+        await ingest_document_content(
+            session=session,
+            settings=settings,
+            embedding_provider=provider,
+            document_id=mismatched_source.id,
+            filename="mismatched.txt",
+            content=b"needle memory fallback should not expose mismatched source",
+            mime_type="text/plain",
+        )
+        await ingest_document_content(
+            session=session,
+            settings=settings,
+            embedding_provider=provider,
+            document_id=deleted.id,
+            filename="deleted.txt",
+            content=b"needle memory fallback deleted document",
+            mime_type="text/plain",
+        )
+        await _mark_document_deleted(session, deleted)
+        await session.commit()
+
+        results = await text_search(
+            session=session,
+            user_id=user.id,
+            query="needle memory fallback",
+            limit=10,
+        )
+
+        await session.execute(delete(User).where(User.email.like(f"{marker}%")))
+        await session.commit()
+
+    await engine.dispose()
+
+    assert [result.document_id for result in results] == [visible.id]
+    assert results[0].matching_excerpts == ()
+    assert results[0].source_metadata["display_name"] == "Fixture"
