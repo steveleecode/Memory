@@ -190,7 +190,8 @@ fn select_folder(app: AppHandle) -> Result<Option<FolderSelection>, String> {
     let selection = app.dialog().file().blocking_pick_folder();
     selection
         .map(|path| {
-            let canonical = canonicalize_existing_dir(&path)?;
+            let selected_path = path.into_path().map_err(|error| error.to_string())?;
+            let canonical = canonicalize_existing_dir(&selected_path)?;
             Ok(FolderSelection {
                 display_name: canonical
                     .file_name()
