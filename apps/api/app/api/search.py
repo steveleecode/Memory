@@ -8,8 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import AuthenticatedUser, get_current_user, require_matching_user
 from app.core.settings import Settings, get_settings
 from app.db.session import get_session
-from app.ingestion.embeddings import GeminiEmbeddingProvider
-from app.search.service import semantic_search
+from app.ingestion.embeddings import (
+    EmbeddingProvider,
+    EmbeddingProviderError,
+    GeminiEmbeddingProvider,
+)
+from app.search.service import semantic_search, text_search
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -25,26 +29,39 @@ class SearchResponse(BaseModel):
     results: list[dict[str, object]]
 
 
-@router.post("", response_model=SearchResponse)
-async def search(
-    request: SearchRequest,
-    session: Annotated[AsyncSession, Depends(get_session)],
+def get_embedding_provider(
     settings: Annotated[Settings, Depends(get_settings)],
-    authenticated: Annotated[AuthenticatedUser, Depends(get_current_user)],
-) -> SearchResponse:
-    require_matching_user(authenticated, request.user_id)
-    provider = GeminiEmbeddingProvider(
+) -> EmbeddingProvider:
+    return GeminiEmbeddingProvider(
         api_key=settings.gemini_api_key,
         model=settings.embedding_model,
         dimensions=settings.embedding_dimensions,
     )
-    results = await semantic_search(
-        session=session,
-        embedding_provider=provider,
-        user_id=authenticated.id,
-        query=request.query,
-        limit=request.limit,
-    )
+
+
+@router.post("", response_model=SearchResponse)
+async def search(
+    request: SearchRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    embedding_provider: Annotated[EmbeddingProvider, Depends(get_embedding_provider)],
+    authenticated: Annotated[AuthenticatedUser, Depends(get_current_user)],
+) -> SearchResponse:
+    require_matching_user(authenticated, request.user_id)
+    try:
+        results = await semantic_search(
+            session=session,
+            embedding_provider=embedding_provider,
+            user_id=authenticated.id,
+            query=request.query,
+            limit=request.limit,
+        )
+    except EmbeddingProviderError:
+        results = await text_search(
+            session=session,
+            user_id=authenticated.id,
+            query=request.query,
+            limit=request.limit,
+        )
     return SearchResponse(
         query=request.query,
         results=[

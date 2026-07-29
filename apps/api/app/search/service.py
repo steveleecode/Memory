@@ -87,6 +87,68 @@ async def semantic_search(
     return tuple(_row_to_result(cast(Mapping[str, Any], row), query) for row in rows)
 
 
+async def text_search(
+    *,
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    query: str,
+    limit: int = 10,
+) -> tuple[SearchResult, ...]:
+    rows = (
+        await session.execute(
+            text(
+                """
+                WITH text_matches AS (
+                    SELECT
+                        dc.document_id,
+                        MAX(
+                            ts_rank_cd(
+                                to_tsvector('english', dc.text),
+                                plainto_tsquery('english', :query)
+                            )
+                        ) AS text_rank,
+                        array_agg(
+                            dc.text
+                            ORDER BY ts_rank_cd(
+                                to_tsvector('english', dc.text),
+                                plainto_tsquery('english', :query)
+                            ) DESC
+                        ) AS excerpts
+                    FROM document_chunks dc
+                    WHERE dc.user_id = :user_id
+                      AND to_tsvector('english', dc.text) @@ plainto_tsquery('english', :query)
+                    GROUP BY dc.document_id
+                )
+                SELECT
+                    d.id AS document_id,
+                    d.title,
+                    d.mime_type,
+                    d.status,
+                    d.document_metadata,
+                    s.kind AS source_kind,
+                    s.display_name AS source_display_name,
+                    s.source_metadata,
+                    text_matches.text_rank,
+                    text_matches.excerpts
+                FROM text_matches
+                JOIN documents d ON d.id = text_matches.document_id
+                JOIN sources s ON s.id = d.source_id
+                WHERE d.user_id = :user_id
+                  AND d.status != 'deleted'
+                ORDER BY text_matches.text_rank DESC, d.updated_at DESC
+                LIMIT :limit
+                """
+            ),
+            {
+                "query": query,
+                "user_id": user_id,
+                "limit": limit,
+            },
+        )
+    ).mappings()
+    return tuple(_text_row_to_result(cast(Mapping[str, Any], row), query) for row in rows)
+
+
 def _row_to_result(row: Mapping[str, Any], query: str) -> SearchResult:
     semantic_score = max(0.0, 1.0 - float(row["cosine_distance"]))
     text_score = min(float(row["text_rank"] or 0.0), 1.0)
@@ -121,6 +183,42 @@ def _row_to_result(row: Mapping[str, Any], query: str) -> SearchResult:
             "text_score": round(text_score, 6),
             "weights": {"semantic": 0.82, "text": 0.18},
             "signals": ["chunk_embedding_cosine_similarity", "chunk_text_match"],
+        },
+    )
+
+
+def _text_row_to_result(row: Mapping[str, Any], query: str) -> SearchResult:
+    text_score = min(float(row["text_rank"] or 0.0), 1.0)
+    excerpts = tuple(_excerpt(str(item), query) for item in list(row["excerpts"] or [])[:3])
+    metadata = dict(row["document_metadata"] or {})
+    source_metadata = {
+        "kind": str(row["source_kind"]),
+        "display_name": row["source_display_name"],
+        "metadata": row["source_metadata"] or {},
+        "document_metadata": {
+            **metadata,
+            "indexing_status": str(row["status"]),
+        },
+    }
+    if str(row["source_kind"]) == "google_drive":
+        source_metadata["drive"] = {
+            "file_id": metadata.get("google_drive_file_id"),
+            "web_url": metadata.get("drive_web_url"),
+            "mime_type": metadata.get("drive_mime_type"),
+            "modified_time": metadata.get("modified_time"),
+        }
+    return SearchResult(
+        document_id=row["document_id"],
+        title=str(row["title"]),
+        type=row["mime_type"],
+        score=round(text_score, 6),
+        matching_excerpts=excerpts,
+        source_metadata=source_metadata,
+        explanation={
+            "semantic_score": 0.0,
+            "text_score": round(text_score, 6),
+            "weights": {"semantic": 0.0, "text": 1.0},
+            "signals": ["chunk_text_match"],
         },
     )
 

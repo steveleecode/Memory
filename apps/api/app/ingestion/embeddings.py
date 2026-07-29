@@ -10,6 +10,10 @@ class EmbeddingProvider(Protocol):
         pass
 
 
+class EmbeddingProviderError(RuntimeError):
+    pass
+
+
 class GeminiEmbeddingProvider:
     def __init__(
         self,
@@ -32,16 +36,19 @@ class GeminiEmbeddingProvider:
         return [await asyncio.to_thread(self._embed_one, text) for text in texts]
 
     def _embed_one(self, text: str) -> tuple[float, ...]:
-        response = self.client.models.embed_content(
-            model=self.model,
-            contents=text,
-            config=types.EmbedContentConfig(output_dimensionality=self.dimensions),
-        )
+        try:
+            response = self.client.models.embed_content(
+                model=self.model,
+                contents=text,
+                config=types.EmbedContentConfig(output_dimensionality=self.dimensions),
+            )
+        except Exception as exc:
+            raise EmbeddingProviderError("Gemini embedding request failed") from exc
         if not response.embeddings:
-            raise ValueError("Gemini returned no embeddings")
+            raise EmbeddingProviderError("Gemini returned no embeddings")
         values = response.embeddings[0].values
         if values is None:
-            raise ValueError("Gemini returned an embedding without values")
+            raise EmbeddingProviderError("Gemini returned an embedding without values")
         return tuple(float(value) for value in values)
 
 
