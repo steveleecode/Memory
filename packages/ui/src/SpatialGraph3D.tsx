@@ -8,7 +8,6 @@ import {
   useMemo,
   useRef,
   type ComponentRef,
-  type ReactNode,
   type RefObject,
 } from "react";
 import { gsap } from "gsap";
@@ -35,7 +34,6 @@ export type SpatialGraph3DProps = {
   hoveredId: string | null;
   setSelectedId: (id: string) => void;
   setHoveredId: (id: string | null) => void;
-  fallback: ReactNode;
   resetSignal: number;
 };
 
@@ -45,13 +43,12 @@ export default function SpatialGraph3D({
   hoveredId,
   setSelectedId,
   setHoveredId,
-  fallback,
   resetSignal,
 }: SpatialGraph3DProps) {
   const controlsRef = useRef<OrbitControlsHandle | null>(null);
   return (
     <div className="graph-canvas" aria-label="Spatial relationship map">
-      <Canvas camera={{ position: [0, 0, 9], fov: 48 }} dpr={[1, 1.6]} fallback={fallback}>
+      <Canvas camera={{ position: [0, 0, 9], fov: 48 }} dpr={[1, 1.6]}>
         <color attach="background" args={["#fbfaf7"]} />
         <ambientLight intensity={1.8} />
         <pointLight position={[3, 4, 6]} intensity={1.2} />
@@ -85,7 +82,7 @@ function GraphScene({
   setHoveredId,
   controlsRef,
   resetSignal,
-}: Omit<SpatialGraph3DProps, "fallback"> & {
+}: SpatialGraph3DProps & {
   controlsRef: RefObject<OrbitControlsHandle | null>;
 }) {
   const center = points[0];

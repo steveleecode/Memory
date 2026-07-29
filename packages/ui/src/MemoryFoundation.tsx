@@ -1610,7 +1610,6 @@ function SpatialView({
               setSelectedId={setSelectedId}
               setHoveredId={setHoveredId}
               resetSignal={resetSignal}
-              fallback={fallback}
             />
           </Suspense>
         </SpatialRenderBoundary>
