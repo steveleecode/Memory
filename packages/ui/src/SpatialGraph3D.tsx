@@ -1,8 +1,11 @@
 import { Canvas } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
+import { useThree } from "@react-three/fiber";
 import { Line, OrbitControls, Text } from "@react-three/drei";
 import type { SearchResultContract } from "@memory/types";
-import type { ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
+import { gsap } from "gsap";
+import { prefersReducedMotion } from "./animations";
 
 export type SpatialPoint = {
   result: SearchResultContract;
@@ -66,17 +69,26 @@ function GraphScene({
   setHoveredId,
 }: Omit<SpatialGraph3DProps, "fallback">) {
   const center = points[0];
+  const selectedPoint = points.find((point) => point.result.document_id === selectedId) ?? center;
+  const connectedIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (center) ids.add(center.result.document_id);
+    if (selectedId) ids.add(selectedId);
+    return ids;
+  }, [center, selectedId]);
   return (
     <group>
+      <CameraFocus point={selectedPoint ?? null} />
       {center
         ? points.slice(1).map((point) => {
-            const unrelated = selectedId && point.result.document_id !== selectedId;
+            const isSelectedEdge = point.result.document_id === selectedId;
+            const unrelated = Boolean(selectedId && !isSelectedEdge);
             return (
               <Line
-                color={unrelated ? "#d9d5cc" : "#aebfbb"}
+                color={isSelectedEdge ? "#274f49" : unrelated ? "#d7d2c8" : "#9eb8b2"}
                 key={`${center.result.document_id}-${point.result.document_id}`}
-                lineWidth={1.2}
-                opacity={unrelated ? 0.34 : 0.7}
+                lineWidth={isSelectedEdge ? 2.4 : 1.1}
+                opacity={isSelectedEdge ? 0.86 : unrelated ? 0.22 : 0.56}
                 points={[
                   [center.x3, center.y3, center.z3],
                   [point.x3, point.y3, point.z3],
@@ -89,8 +101,11 @@ function GraphScene({
       {points.map((point) => {
         const isSelected = point.result.document_id === selectedId;
         const isHovered = point.result.document_id === hoveredId;
-        const dimmed = Boolean(selectedId && !isSelected);
-        const labelVisible = isSelected || isHovered || point.priority < 0.22;
+        const connected = connectedIds.has(point.result.document_id);
+        const dimmed = Boolean(selectedId && !isSelected && !connected);
+        const labelVisible = isSelected || isHovered || (!selectedId && point.priority < 0.14);
+        const materialColor =
+          point.result.source_metadata.kind === "google_drive" ? "#286f7a" : "#4f7660";
         return (
           <group
             key={point.result.document_id}
@@ -109,13 +124,19 @@ function GraphScene({
               document.body.style.cursor = "";
             }}
           >
-            <mesh scale={isSelected ? 1.22 : 1}>
+            {isSelected ? (
+              <mesh rotation={[Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[point.radius3 + 0.09, 0.012, 12, 56]} />
+                <meshBasicMaterial color="#24231f" transparent opacity={0.88} />
+              </mesh>
+            ) : null}
+            <mesh scale={isSelected ? 1.24 : isHovered ? 1.1 : 1}>
               <sphereGeometry args={[point.radius3, 28, 18]} />
               <meshStandardMaterial
-                color={point.result.source_metadata.kind === "google_drive" ? "#286f7a" : "#4f7660"}
-                emissive={isSelected ? "#173f42" : "#000000"}
-                emissiveIntensity={isSelected ? 0.18 : 0}
-                opacity={dimmed ? 0.28 : 0.94}
+                color={materialColor}
+                emissive={isSelected || isHovered ? "#173f42" : "#000000"}
+                emissiveIntensity={isSelected ? 0.2 : isHovered ? 0.09 : 0}
+                opacity={dimmed ? 0.24 : connected ? 0.95 : 0.72}
                 roughness={0.58}
                 transparent
               />
@@ -125,9 +146,9 @@ function GraphScene({
                 anchorX="center"
                 anchorY="middle"
                 color={dimmed ? "#8c8981" : "#24231f"}
-                fontSize={0.13}
-                maxWidth={1.8}
-                position={[0, point.radius3 + 0.22, 0]}
+                fontSize={isSelected ? 0.15 : 0.125}
+                maxWidth={1.7}
+                position={[0, point.radius3 + (isSelected ? 0.3 : 0.22), 0]}
               >
                 {truncate(point.result.title, 28)}
               </Text>
@@ -137,6 +158,25 @@ function GraphScene({
       })}
     </group>
   );
+}
+
+function CameraFocus({ point }: { point: SpatialPoint | null }) {
+  const { camera } = useThree();
+  useEffect(() => {
+    if (!point || prefersReducedMotion()) return;
+    gsap.to(camera.position, {
+      x: point.x3 * 0.28,
+      y: point.y3 * 0.28,
+      z: 8.2,
+      duration: 0.52,
+      ease: "power3.out",
+      overwrite: true,
+      onUpdate: () => {
+        camera.lookAt(point.x3 * 0.18, point.y3 * 0.18, point.z3);
+      },
+    });
+  }, [camera, point]);
+  return null;
 }
 
 function truncate(value: string, length: number) {

@@ -7,6 +7,7 @@ import type {
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { SearchResponseContract, SearchResultContract } from "@memory/types";
+import { pressElement, useEntranceMotion } from "./animations";
 import { Button } from "./Button";
 import { StatusPill } from "./StatusPill";
 import type { SpatialPoint } from "./SpatialGraph3D";
@@ -909,6 +910,7 @@ export function MemoryFoundation() {
           result={selectedResult}
           related={relatedResults(selectedResult, session.results)}
           openResult={openResult}
+          selectResult={setSelectedId}
           close={() => {
             setSelectedId(null);
           }}
@@ -1193,15 +1195,23 @@ function WorkspaceExperience({
   setDialog: (dialog: DialogMode) => void;
   setAskScope: (scope: AskScope) => void;
 }) {
-  const hasResults = filteredResults.length > 0;
+  const hasSessionResults = session.results.length > 0;
+  const hasFilteredResults = filteredResults.length > 0;
+  const heroRef = useRef<HTMLElement | null>(null);
+  const resultsRef = useRef<HTMLElement | null>(null);
+  useEntranceMotion(heroRef, "panel", []);
+  useEntranceMotion(resultsRef, "panel", [session.query]);
   return (
     <>
-      <section className="workspace-hero" aria-labelledby="search-title">
+      <section className="workspace-hero" aria-labelledby="search-title" ref={heroRef}>
         <div className="workspace-copy">
           <p className="eyebrow">Memory workspace</p>
           <h1 id="search-title">Search by meaning, not location.</h1>
         </div>
-        <form className="search-composer" onSubmit={(event) => void search(event)}>
+        <form
+          className={`search-composer ${searchStatus === "searching" ? "is-searching" : ""}`}
+          onSubmit={(event) => void search(event)}
+        >
           <label className="visually-hidden" htmlFor="memory-search">
             Search indexed files
           </label>
@@ -1247,7 +1257,7 @@ function WorkspaceExperience({
       </section>
 
       {session.query || searchStatus !== "idle" ? (
-        <section className="results-shell" aria-labelledby="results-title">
+        <section className="results-shell" aria-labelledby="results-title" ref={resultsRef}>
           <div className="results-header">
             <div>
               <h2 id="results-title">
@@ -1266,15 +1276,16 @@ function WorkspaceExperience({
                   setAskScope("results");
                   setDialog("ask");
                 }}
-                disabled={!hasResults}
+                disabled={!hasFilteredResults}
               >
                 Ask
               </Button>
             </div>
           </div>
 
-          {hasResults ? (
+          {hasSessionResults ? (
             <ResultFilters
+              resultCount={filteredResults.length}
               sourceOptions={sourceOptions}
               typeOptions={typeOptions}
               sourceFilter={sourceFilter}
@@ -1283,10 +1294,15 @@ function WorkspaceExperience({
               setSourceFilter={setSourceFilter}
               setTypeFilter={setTypeFilter}
               setSortMode={setSortMode}
+              reset={() => {
+                setSourceFilter("all");
+                setTypeFilter("all");
+                setSortMode("relevance");
+              }}
             />
           ) : null}
 
-          {searchStatus === "searching" && !hasResults ? <SearchSkeleton /> : null}
+          {searchStatus === "searching" && !hasFilteredResults ? <SearchSkeleton /> : null}
           {searchStatus === "empty" ? (
             <EmptyState
               title="No matches yet"
@@ -1296,8 +1312,14 @@ function WorkspaceExperience({
           {searchStatus === "cancelled" ? (
             <EmptyState title="Search cancelled" body="Previous results are still available." />
           ) : null}
+          {hasSessionResults && !hasFilteredResults ? (
+            <EmptyState
+              title="No results match these filters"
+              body="Reset the filters or broaden the source and type selection."
+            />
+          ) : null}
 
-          {hasResults ? (
+          {hasFilteredResults ? (
             <div onKeyDown={onResultsKeyDown}>
               {viewMode === "space" ? (
                 <SpatialView
@@ -1404,6 +1426,7 @@ function SegmentedControl({
 }
 
 function ResultFilters({
+  resultCount,
   sourceOptions,
   typeOptions,
   sourceFilter,
@@ -1412,7 +1435,9 @@ function ResultFilters({
   setSourceFilter,
   setTypeFilter,
   setSortMode,
+  reset,
 }: {
+  resultCount: number;
   sourceOptions: string[];
   typeOptions: string[];
   sourceFilter: string;
@@ -1421,9 +1446,15 @@ function ResultFilters({
   setSourceFilter: (value: string) => void;
   setTypeFilter: (value: string) => void;
   setSortMode: (value: "relevance" | "modified" | "name") => void;
+  reset: () => void;
 }) {
+  const filterActive = sourceFilter !== "all" || typeFilter !== "all" || sortMode !== "relevance";
   return (
     <div className="filters" aria-label="Result filters">
+      <div className="filter-summary">
+        <strong>{String(resultCount)} visible</strong>
+        <span>Refine this memory space</span>
+      </div>
       <label>
         Source
         <select
@@ -1469,6 +1500,9 @@ function ResultFilters({
           <option value="name">Name</option>
         </select>
       </label>
+      <button className="filter-reset" type="button" onClick={reset} disabled={!filterActive}>
+        Reset
+      </button>
     </div>
   );
 }
@@ -1489,16 +1523,33 @@ function SpatialView({
   const points = useMemo(() => spatialPoints(results), [results]);
   const prefersReducedMotion = useReducedMotion();
   const selectedPoint = points.find((point) => point.result.document_id === selectedId);
+  const selectedTitle = selectedPoint?.result.title ?? "No file selected";
   return (
     <div className="spatial-panel">
       <div className="graph-toolbar">
-        <span>
-          {prefersReducedMotion
-            ? "Reduced-motion spatial fallback"
-            : "3D spatial map using stable result coordinates"}
-        </span>
-        <button type="button">Fit</button>
-        <button type="button">Reset</button>
+        <span>{prefersReducedMotion ? "Accessible spatial map" : "Spatial file map"}</span>
+        <small>{selectedTitle}</small>
+        <button
+          type="button"
+          onClick={(event) => {
+            pressElement(event.currentTarget);
+            const first = points[0];
+            if (first) {
+              setSelectedId(first.result.document_id);
+            }
+          }}
+        >
+          Recenter
+        </button>
+        <button
+          type="button"
+          onClick={(event) => {
+            pressElement(event.currentTarget);
+            setHoveredId(null);
+          }}
+        >
+          Reset view
+        </button>
       </div>
       {prefersReducedMotion ? (
         <SpatialFallback
@@ -1541,7 +1592,7 @@ function SpatialView({
       {selectedPoint ? (
         <div className="hover-preview">
           <strong>{selectedPoint.result.title}</strong>
-          <span>{whyMatched(selectedPoint.result)}</span>
+          <span>{sourceLabel(selectedPoint.result)}</span>
         </div>
       ) : null}
       <div className="graph-access-list" aria-label="Accessible result map list">
@@ -1675,12 +1726,15 @@ function ResultList({
   setSelectedId: (id: string) => void;
   openResult: (result: SearchResultContract, action: "open" | "reveal") => Promise<void>;
 }) {
+  const listRef = useRef<HTMLDivElement | null>(null);
+  useEntranceMotion(listRef, "list", [results.map((result) => result.document_id).join(":")]);
   return (
-    <div className="result-list" role="listbox" aria-label="Search results">
+    <div className="result-list" role="listbox" aria-label="Search results" ref={listRef}>
       {results.map((result) => (
         <article
           className={`result-row ${selectedId === result.document_id ? "is-selected" : ""}`}
           key={result.document_id}
+          data-animate-item
           role="option"
           aria-selected={selectedId === result.document_id}
           tabIndex={0}
@@ -1713,26 +1767,44 @@ function FileInspector({
   result,
   related,
   openResult,
+  selectResult,
   close,
   ask,
 }: {
   result: SearchResultContract;
   related: SearchResultContract[];
   openResult: (result: SearchResultContract, action: "open" | "reveal") => Promise<void>;
+  selectResult: (id: string) => void;
   close: () => void;
   ask: () => void;
 }) {
+  const inspectorRef = useRef<HTMLElement | null>(null);
+  useEntranceMotion(inspectorRef, "panel", [result.document_id]);
+  const metadataRows = technicalMetadata(result);
   return (
-    <aside className="inspector" aria-labelledby="inspector-title">
+    <aside className="inspector" aria-labelledby="inspector-title" ref={inspectorRef}>
       <div className="inspector-header">
         <FileIcon result={result} />
         <div>
           <h2 id="inspector-title">{result.title}</h2>
-          <p>{sourceLabel(result)}</p>
+          <p>{friendlySourceLabel(result)}</p>
         </div>
         <button type="button" onClick={close} aria-label="Close inspector">
-          x
+          Close
         </button>
+      </div>
+      <div className="inspector-actions inspector-actions--sticky">
+        <Button variant="primary" onClick={() => void openResult(result, "open")}>
+          Open original
+        </Button>
+        <Button onClick={ask}>Ask about this</Button>
+        <Button
+          onClick={() => {
+            selectResult(result.document_id);
+          }}
+        >
+          Reveal in graph
+        </Button>
       </div>
       <InspectorSection title="Preview">
         <Preview result={result} />
@@ -1759,21 +1831,33 @@ function FileInspector({
       <InspectorSection title="Connected files">
         {related.length > 0 ? (
           related.map((item) => (
-            <button className="related-file" key={item.document_id} type="button">
-              {item.title}
+            <button
+              className="related-file"
+              key={item.document_id}
+              type="button"
+              onClick={() => {
+                selectResult(item.document_id);
+              }}
+            >
+              <span>{item.title}</span>
+              <small>{relevanceLabel(item.score)}</small>
             </button>
           ))
         ) : (
           <p>No directly related files in this result set.</p>
         )}
       </InspectorSection>
-      <div className="inspector-actions">
-        <Button variant="primary" onClick={() => void openResult(result, "open")}>
-          Open original
-        </Button>
-        <Button onClick={() => void openResult(result, "reveal")}>Reveal</Button>
-        <Button onClick={ask}>Ask about this</Button>
-      </div>
+      <details className="technical-details">
+        <summary>Technical details</summary>
+        <dl className="signal-list">
+          {metadataRows.map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </details>
     </aside>
   );
 }
@@ -2207,6 +2291,37 @@ function InspectorSection({ title, children }: { title: string; children: ReactN
 
 function Preview({ result }: { result: SearchResultContract }) {
   const text = excerpt(result);
+  const type = result.type?.toLowerCase() ?? "";
+  const previewUrl =
+    stringFrom(result.source_metadata.document_metadata.thumbnail_url) ??
+    stringFrom(result.source_metadata.document_metadata.preview_url);
+  if (type.includes("image") && previewUrl) {
+    return <img className="preview-image" src={previewUrl} alt="" />;
+  }
+  if (type.includes("image")) {
+    return (
+      <div className="preview-file preview-file--image">
+        <FileIcon result={result} />
+        <span>Image preview unavailable</span>
+      </div>
+    );
+  }
+  if (type.includes("pdf")) {
+    return (
+      <div className="preview-file">
+        <FileIcon result={result} />
+        <span>PDF content has been indexed for search.</span>
+      </div>
+    );
+  }
+  if (type.includes("spreadsheet") || type.includes("sheet")) {
+    return (
+      <div className="preview-file">
+        <FileIcon result={result} />
+        <span>Spreadsheet content is represented by indexed text excerpts.</span>
+      </div>
+    );
+  }
   if (text) {
     return <pre className="preview-text">{text}</pre>;
   }
@@ -2348,6 +2463,34 @@ function sourceLabel(result: SearchResultContract) {
     modified ? new Date(modified).toLocaleDateString() : null,
   ].filter(Boolean);
   return pieces.join(" / ");
+}
+
+function friendlySourceLabel(result: SearchResultContract) {
+  const folder = stringFrom(result.source_metadata.document_metadata.relative_path);
+  const modified = resultModifiedAt(result);
+  const parts = [
+    result.source_metadata.kind === "google_drive" ? "Google Drive" : "Local folder",
+    result.source_metadata.display_name,
+    folder ? relativeLocation(folder) : null,
+    modified ? `Modified ${new Date(modified).toLocaleDateString()}` : null,
+  ].filter(Boolean);
+  return parts.join(" / ");
+}
+
+function technicalMetadata(result: SearchResultContract): [string, string][] {
+  const metadata = result.source_metadata.document_metadata;
+  const rows: [string, string | null][] = [
+    ["Document ID", result.document_id],
+    ["MIME type", result.type],
+    ["Index status", stringFrom(metadata.indexing_status)],
+    ["Relative path", stringFrom(metadata.relative_path)],
+    ["Drive URL", driveWebUrl(result)],
+    ["Source ID", stringFrom(metadata.source_id)],
+    ["Modified", resultModifiedAt(result)],
+  ];
+  return rows
+    .filter((row): row is [string, string] => Boolean(row[1]))
+    .map(([label, value]) => [label, value.length > 180 ? `${value.slice(0, 177)}...` : value]);
 }
 
 function fileTypeLabel(result: SearchResultContract) {
