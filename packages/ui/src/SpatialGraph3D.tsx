@@ -3,13 +3,7 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { useThree } from "@react-three/fiber";
 import { Line, OrbitControls, Text } from "@react-three/drei";
 import type { SearchResultContract } from "@memory/types";
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  type ComponentRef,
-  type RefObject,
-} from "react";
+import { useEffect, useMemo, useRef, type ComponentRef, type RefObject } from "react";
 import { gsap } from "gsap";
 import { prefersReducedMotion } from "./animations";
 import { cameraFocusTarget, type CameraVector } from "./spatialCamera";
