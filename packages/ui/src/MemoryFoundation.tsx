@@ -20,6 +20,7 @@ import { pressElement, useEntranceMotion } from "./animations";
 import { Button } from "./Button";
 import { StatusPill } from "./StatusPill";
 import type { SpatialPoint } from "./SpatialGraph3D";
+import { revealGraphSelection, type WorkspaceViewMode } from "./workspaceGraphActions";
 
 type ApprovedRoot = {
   id: string;
@@ -74,7 +75,7 @@ type DriveConnection = {
   last_summary: Record<string, unknown> | null;
 };
 
-type ViewMode = "space" | "timeline" | "list";
+type ViewMode = WorkspaceViewMode;
 type DialogMode = "auth" | "sources" | "settings" | "ask" | "shortcuts" | null;
 type SearchStatus = "idle" | "searching" | "complete" | "empty" | "cancelled" | "error";
 type OnboardingStep = "explain" | "connect" | "sync" | "first-search" | "done";
@@ -139,6 +140,7 @@ export function MemoryFoundation() {
   const [viewMode, setViewMode] = useState<ViewMode>("space");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [graphResetSignal, setGraphResetSignal] = useState(0);
   const [dialog, setDialog] = useState<DialogMode>(null);
   const [sourceFilter, setSourceFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -738,6 +740,17 @@ export function MemoryFoundation() {
     }
   }
 
+  function revealInGraph(id: string) {
+    revealGraphSelection(id, {
+      setSelectedId,
+      setHoveredId,
+      setViewMode,
+      resetGraphView: () => {
+        setGraphResetSignal((signal) => signal + 1);
+      },
+    });
+  }
+
   function onResultsKeyDown(event: ReactKeyboardEvent) {
     if (event.key === "ArrowDown" || event.key === "ArrowRight") {
       event.preventDefault();
@@ -905,6 +918,11 @@ export function MemoryFoundation() {
             hoveredId={hoveredId}
             setSelectedId={setSelectedId}
             setHoveredId={setHoveredId}
+            graphResetSignal={graphResetSignal}
+            resetGraphView={() => {
+              setHoveredId(null);
+              setGraphResetSignal((signal) => signal + 1);
+            }}
             openResult={openResult}
             onResultsKeyDown={onResultsKeyDown}
             quietPrompts={quietPrompts}
@@ -919,7 +937,7 @@ export function MemoryFoundation() {
           result={selectedResult}
           related={relatedResults(selectedResult, session.results)}
           openResult={openResult}
-          selectResult={setSelectedId}
+          revealInGraph={revealInGraph}
           close={() => {
             setSelectedId(null);
           }}
@@ -1167,6 +1185,8 @@ function WorkspaceExperience({
   hoveredId,
   setSelectedId,
   setHoveredId,
+  graphResetSignal,
+  resetGraphView,
   openResult,
   onResultsKeyDown,
   quietPrompts,
@@ -1198,6 +1218,8 @@ function WorkspaceExperience({
   hoveredId: string | null;
   setSelectedId: (id: string) => void;
   setHoveredId: (id: string | null) => void;
+  graphResetSignal: number;
+  resetGraphView: () => void;
   openResult: (result: SearchResultContract, action: "open" | "reveal") => Promise<void>;
   onResultsKeyDown: (event: ReactKeyboardEvent) => void;
   quietPrompts: string[];
@@ -1337,6 +1359,8 @@ function WorkspaceExperience({
                   hoveredId={hoveredId}
                   setSelectedId={setSelectedId}
                   setHoveredId={setHoveredId}
+                  resetSignal={graphResetSignal}
+                  resetGraphView={resetGraphView}
                 />
               ) : null}
               {viewMode === "timeline" ? (
@@ -1434,7 +1458,7 @@ function SegmentedControl({
   );
 }
 
-function ResultFilters({
+export function ResultFilters({
   resultCount,
   sourceOptions,
   typeOptions,
@@ -1522,12 +1546,16 @@ function SpatialView({
   hoveredId,
   setSelectedId,
   setHoveredId,
+  resetSignal,
+  resetGraphView,
 }: {
   results: SearchResultContract[];
   selectedId: string | null;
   hoveredId: string | null;
   setSelectedId: (id: string) => void;
   setHoveredId: (id: string | null) => void;
+  resetSignal: number;
+  resetGraphView: () => void;
 }) {
   const points = useMemo(() => spatialPoints(results), [results]);
   const prefersReducedMotion = useReducedMotion();
@@ -1564,7 +1592,7 @@ function SpatialView({
           type="button"
           onClick={(event) => {
             pressElement(event.currentTarget);
-            setHoveredId(null);
+            resetGraphView();
           }}
         >
           Reset view
@@ -1581,6 +1609,7 @@ function SpatialView({
               hoveredId={hoveredId}
               setSelectedId={setSelectedId}
               setHoveredId={setHoveredId}
+              resetSignal={resetSignal}
               fallback={fallback}
             />
           </Suspense>
@@ -1784,18 +1813,18 @@ function ResultList({
   );
 }
 
-function FileInspector({
+export function FileInspector({
   result,
   related,
   openResult,
-  selectResult,
+  revealInGraph,
   close,
   ask,
 }: {
   result: SearchResultContract;
   related: SearchResultContract[];
   openResult: (result: SearchResultContract, action: "open" | "reveal") => Promise<void>;
-  selectResult: (id: string) => void;
+  revealInGraph: (id: string) => void;
   close: () => void;
   ask: () => void;
 }) {
@@ -1821,7 +1850,7 @@ function FileInspector({
         <Button onClick={ask}>Ask about this</Button>
         <Button
           onClick={() => {
-            selectResult(result.document_id);
+            revealInGraph(result.document_id);
           }}
         >
           Reveal in graph
@@ -1857,7 +1886,7 @@ function FileInspector({
               key={item.document_id}
               type="button"
               onClick={() => {
-                selectResult(item.document_id);
+                revealInGraph(item.document_id);
               }}
             >
               <span>{item.title}</span>
@@ -2310,8 +2339,8 @@ function InspectorSection({ title, children }: { title: string; children: ReactN
   );
 }
 
-function Preview({ result }: { result: SearchResultContract }) {
-  const text = excerpt(result);
+export function Preview({ result }: { result: SearchResultContract }) {
+  const text = result.matching_excerpts[0] ?? null;
   const type = result.type?.toLowerCase() ?? "";
   const previewUrl =
     stringFrom(result.source_metadata.document_metadata.thumbnail_url) ??
@@ -2326,6 +2355,9 @@ function Preview({ result }: { result: SearchResultContract }) {
         <span>Image preview unavailable</span>
       </div>
     );
+  }
+  if (text) {
+    return <pre className="preview-text">{text}</pre>;
   }
   if (type.includes("pdf")) {
     return (
@@ -2342,9 +2374,6 @@ function Preview({ result }: { result: SearchResultContract }) {
         <span>Spreadsheet content is represented by indexed text excerpts.</span>
       </div>
     );
-  }
-  if (text) {
-    return <pre className="preview-text">{text}</pre>;
   }
   return (
     <p>
