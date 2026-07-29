@@ -50,6 +50,51 @@ Do not:
 
 If a feature cannot be completed because of missing requirements, unavailable credentials, failing infrastructure, or another blocker, do not create a misleading completion commit. Clearly report the blocker and leave the work uncommitted unless explicitly asked to create a work-in-progress commit.
 
+## GitHub Workflow
+
+The GitHub CLI (`gh`) is installed and authenticated.
+
+Before beginning work:
+
+1. Run `gh issue list` to view open issues.
+2. Claim the issue you are working on by commenting on it.
+3. Read the complete issue with:
+   ```bash
+   gh issue view <issue-number>
+   ```
+4. Treat the GitHub issue description as the implementation specification.
+5. If requirements are unclear, ask for clarification instead of guessing.
+
+When implementing:
+
+- Reference the issue number in commits.
+- Create a dedicated branch:
+  ```bash
+  git checkout -b issue-<number>-short-description
+  ```
+- Make small, reviewable commits.
+- Run all tests and linting before committing.
+- Open a pull request when the issue is complete:
+  ```bash
+  gh pr create
+  ```
+
+After completion:
+
+- Comment on the issue summarizing what was implemented.
+- Link the PR to the issue.
+
+## Parallel Development
+
+Each Codex instance should:
+
+- Select exactly one open GitHub issue.
+- Work only on that issue.
+- Never modify files unrelated to that issue unless necessary.
+- Commit progress frequently.
+- Open a PR linked to the issue.
+- Do not begin another issue after finishing unless instructed.
+
 ## Commands
 
 - Install JS dependencies: `pnpm install`
