@@ -2,7 +2,6 @@ import { Canvas } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import { Line, OrbitControls, Text } from "@react-three/drei";
 import type { SearchResultContract } from "@memory/types";
-import type { ReactNode } from "react";
 
 export type SpatialPoint = {
   result: SearchResultContract;
@@ -22,7 +21,6 @@ export type SpatialGraph3DProps = {
   hoveredId: string | null;
   setSelectedId: (id: string) => void;
   setHoveredId: (id: string | null) => void;
-  fallback: ReactNode;
 };
 
 export default function SpatialGraph3D({
@@ -31,11 +29,10 @@ export default function SpatialGraph3D({
   hoveredId,
   setSelectedId,
   setHoveredId,
-  fallback,
 }: SpatialGraph3DProps) {
   return (
     <div className="graph-canvas" aria-label="Spatial relationship map">
-      <Canvas camera={{ position: [0, 0, 9], fov: 48 }} dpr={[1, 1.6]} fallback={fallback}>
+      <Canvas camera={{ position: [0, 0, 9], fov: 48 }} dpr={[1, 1.6]}>
         <color attach="background" args={["#fbfaf7"]} />
         <ambientLight intensity={1.8} />
         <pointLight position={[3, 4, 6]} intensity={1.2} />

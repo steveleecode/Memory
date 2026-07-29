@@ -4,7 +4,16 @@ import type {
   RefObject,
   SyntheticEvent,
 } from "react";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Component,
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { SearchResponseContract, SearchResultContract } from "@memory/types";
 import { Button } from "./Button";
@@ -1489,6 +1498,16 @@ function SpatialView({
   const points = useMemo(() => spatialPoints(results), [results]);
   const prefersReducedMotion = useReducedMotion();
   const selectedPoint = points.find((point) => point.result.document_id === selectedId);
+  const fallback = (
+    <SpatialFallback
+      points={points}
+      selectedId={selectedId}
+      hoveredId={hoveredId}
+      setSelectedId={setSelectedId}
+      setHoveredId={setHoveredId}
+    />
+  );
+  const renderKey = points.map((point) => point.result.document_id).join(":");
   return (
     <div className="spatial-panel">
       <div className="graph-toolbar">
@@ -1501,42 +1520,19 @@ function SpatialView({
         <button type="button">Reset</button>
       </div>
       {prefersReducedMotion ? (
-        <SpatialFallback
-          points={points}
-          selectedId={selectedId}
-          hoveredId={hoveredId}
-          setSelectedId={setSelectedId}
-          setHoveredId={setHoveredId}
-        />
+        fallback
       ) : (
-        <Suspense
-          fallback={
-            <SpatialFallback
+        <SpatialRenderBoundary fallback={fallback} resetKey={renderKey}>
+          <Suspense fallback={fallback}>
+            <SpatialGraph3D
               points={points}
               selectedId={selectedId}
               hoveredId={hoveredId}
               setSelectedId={setSelectedId}
               setHoveredId={setHoveredId}
             />
-          }
-        >
-          <SpatialGraph3D
-            points={points}
-            selectedId={selectedId}
-            hoveredId={hoveredId}
-            setSelectedId={setSelectedId}
-            setHoveredId={setHoveredId}
-            fallback={
-              <SpatialFallback
-                points={points}
-                selectedId={selectedId}
-                hoveredId={hoveredId}
-                setSelectedId={setSelectedId}
-                setHoveredId={setHoveredId}
-              />
-            }
-          />
-        </Suspense>
+          </Suspense>
+        </SpatialRenderBoundary>
       )}
       {selectedPoint ? (
         <div className="hover-preview">
@@ -1560,6 +1556,30 @@ function SpatialView({
       </div>
     </div>
   );
+}
+
+class SpatialRenderBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode; resetKey: string },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidUpdate(previousProps: { resetKey: string }) {
+    if (this.state.hasError && previousProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
 }
 
 function SpatialFallback({

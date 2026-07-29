@@ -691,11 +691,13 @@ label {
   right: 18px;
   z-index: 10;
   display: grid;
-  width: min(420px, calc(100vw - 36px));
+  width: clamp(520px, 38vw, 720px);
+  max-width: calc(100vw - 36px);
   max-height: calc(100vh - 36px);
   gap: var(--space-4);
   overflow: auto;
   padding: var(--space-5);
+  resize: horizontal;
   box-shadow: var(--shadow-panel);
 }
 
@@ -711,6 +713,13 @@ label {
 .inspector-header > div {
   min-width: 0;
   margin-right: auto;
+}
+
+.inspector-header h2,
+.inspector-header p,
+.inspector-section,
+.related-file {
+  overflow-wrap: anywhere;
 }
 
 .inspector-header button,
@@ -740,14 +749,16 @@ label {
 }
 
 .preview-text {
-  overflow: auto;
-  max-height: 180px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: min(32vh, 300px);
   margin: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-canvas-raised);
   padding: var(--space-3);
   color: var(--color-text);
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
 
@@ -978,7 +989,9 @@ label {
     bottom: 0;
     left: 0;
     width: 100%;
+    max-width: 100%;
     max-height: 78vh;
+    resize: none;
     border-radius: var(--radius-md) var(--radius-md) 0 0;
   }
 
