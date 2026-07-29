@@ -1,0 +1,1 @@
+OAuth tokens, extracted document text, embeddings, and local file paths are sensitive. Memory keeps credentials on the backend and scopes every search by user.

@@ -1,0 +1,26 @@
+{
+  "name": "@memory/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@memory/types": "workspace:*",
+    "@memory/ui": "workspace:*",
+    "@tauri-apps/api": "^2.6.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "vite": "^6.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "@tauri-apps/cli": "^2.6.2",
+    "@types/react": "^19.1.9",
+    "@types/react-dom": "^19.1.7"
+  }
+}

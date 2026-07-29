@@ -1,0 +1,62 @@
+[project]
+name = "memory-api"
+version = "0.1.0"
+description = "FastAPI backend for Memory"
+requires-python = ">=3.12"
+dependencies = [
+  "alembic>=1.13.2",
+  "asyncpg>=0.29.0",
+  "boto3>=1.34.0",
+  "cryptography>=43.0.0",
+  "fastapi>=0.115.0",
+  "google-genai>=1.0.0",
+  "httpx>=0.27.0",
+  "pydantic-settings>=2.4.0",
+  "pypdf>=5.0.0",
+  "python-docx>=1.1.2",
+  "python-pptx>=1.0.2",
+  "redis>=5.0.8",
+  "sqlalchemy[asyncio]>=2.0.32",
+  "tiktoken>=0.8.0",
+  "uvicorn[standard]>=0.30.6"
+]
+
+[project.scripts]
+memory-api = "app.cli.main:main"
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.27.0",
+  "mypy>=1.11.1",
+  "pytest>=8.3.2",
+  "pytest-asyncio>=0.23.8",
+  "ruff>=0.5.6"
+]
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["sqlalchemy.ext.mypy.plugin"]
+exclude = ["alembic/versions"]
+
+[[tool.mypy.overrides]]
+module = ["boto3", "botocore.config", "docx", "google", "google.genai", "pptx", "pypdf", "tiktoken"]
+ignore_missing_imports = true
