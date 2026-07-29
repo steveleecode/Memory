@@ -131,9 +131,8 @@ def test_search_route_falls_back_when_provider_configuration_is_missing(
     app.dependency_overrides[search_api.get_current_user] = fake_current_user
     app.dependency_overrides[search_api.get_settings] = lambda: Settings(GEMINI_API_KEY=None)
 
-    with caplog.at_level("WARNING", logger="app.api.search"):
-        with TestClient(app) as client:
-            response = client.post("/search", json={"user_id": str(user_id), "query": "memory"})
+    with caplog.at_level("WARNING", logger="app.api.search"), TestClient(app) as client:
+        response = client.post("/search", json={"user_id": str(user_id), "query": "memory"})
 
     assert response.status_code == 200
     assert response.json()["results"][0]["matching_excerpts"] == []
