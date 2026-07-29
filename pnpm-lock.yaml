@@ -116,6 +116,9 @@ importers:
       "@tauri-apps/api":
         specifier: ^2.6.0
         version: 2.11.1
+      gsap:
+        specifier: ^3.15.0
+        version: 3.15.0
       react:
         specifier: ^19.1.1
         version: 19.2.8
@@ -1806,6 +1809,12 @@ packages:
     resolution:
       {
         integrity: sha512-b/ZCF6amfAUb7dJM/MxRs7AetQEahYzJ8PtgfrmEdtw6uyGOr+ZSGtgjFm6mfsBkxJ4d2W7kg+Nlqzqvn3Bc0w==,
+      }
+
+  gsap@3.15.0:
+    resolution:
+      {
+        integrity: sha512-dMW4CWBTUK1AEEDeZc1g4xpPGIrSf9fJF960qbTZmN/QwZIWY5wgliS6JWl9/25fpTGJrMRtSjGtOmPnfjZB+A==,
       }
 
   has-flag@4.0.0:
@@ -3612,6 +3621,8 @@ snapshots:
   globals@16.5.0: {}
 
   glsl-noise@0.0.0: {}
+
+  gsap@3.15.0: {}
 
   has-flag@4.0.0: {}
 
