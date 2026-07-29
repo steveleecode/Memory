@@ -164,7 +164,7 @@ function CameraFocus({ point }: { point: SpatialPoint | null }) {
   const { camera } = useThree();
   useEffect(() => {
     if (!point || prefersReducedMotion()) return;
-    gsap.to(camera.position, {
+    const tween = gsap.to(camera.position, {
       x: point.x3 * 0.28,
       y: point.y3 * 0.28,
       z: 8.2,
@@ -175,6 +175,9 @@ function CameraFocus({ point }: { point: SpatialPoint | null }) {
         camera.lookAt(point.x3 * 0.18, point.y3 * 0.18, point.z3);
       },
     });
+    return () => {
+      tween.kill();
+    };
   }, [camera, point]);
   return null;
 }
