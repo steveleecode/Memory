@@ -13,7 +13,8 @@ Memory uses GSAP through `packages/ui/src/animations.ts` for reusable, restraine
 
 - `useEntranceMotion(ref, "panel", keys)` animates shell panels, dialogs, and inspectors.
 - `useEntranceMotion(ref, "list", keys)` staggers children marked with `data-animate-item`.
-- `pressElement(element)` adds a short tactile press response for compact controls.
+- `pressElement(element)` adds a short tactile press response for compact controls. The shared
+  `Button` component uses this automatically while preserving caller pointer handlers.
 - `prefersReducedMotion()` is shared by React UI and the 3D graph camera easing.
 
 ## Adding Motion
