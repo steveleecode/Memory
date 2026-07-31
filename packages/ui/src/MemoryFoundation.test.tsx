@@ -182,10 +182,21 @@ function resultFixture(overrides: ResultFixtureOverrides = {}): SearchResultCont
       document_metadata: documentMetadata,
     },
     explanation: {
+      final_score: 0.82,
       semantic_score: 0.8,
       text_score: 0.4,
-      weights: { semantic: 0.7, text: 0.3 },
-      signals: ["chunk_embedding_cosine_similarity"],
+      matched_representation_type: "document_text",
+      has_extracted_text: true,
+      signals: [
+        {
+          type: "document_text",
+          score: 0.82,
+          raw_semantic_score: 0.8,
+          raw_text_score: 0.4,
+          matched_content: "Indexed match excerpt",
+          applied_weight: 1,
+        },
+      ],
     },
     ...contractOverrides,
   };

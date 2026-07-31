@@ -20,7 +20,7 @@ from app.google_drive.mime import ContentPlan, content_filename, content_plan
 from app.ingestion.embeddings import EmbeddingProvider, GeminiEmbeddingProvider
 from app.ingestion.hashing import sha256_bytes
 from app.ingestion.pipeline import ingest_document_content
-from app.models.document import Document, DocumentChunk, DocumentStatus
+from app.models.document import Document, DocumentChunk, DocumentStatus, SearchRepresentation
 from app.models.source import Source, SourceKind, SourceStatus
 
 SyncMode = Literal["initial", "incremental"]
@@ -420,6 +420,9 @@ async def _mark_removed(
     document.embedding = None
     document.searchable_text = None
     await session.execute(delete(DocumentChunk).where(DocumentChunk.document_id == document.id))
+    await session.execute(
+        delete(SearchRepresentation).where(SearchRepresentation.document_id == document.id)
+    )
     summary.files_deleted_or_removed += 1
     await session.commit()
 

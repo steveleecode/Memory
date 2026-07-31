@@ -26,7 +26,7 @@ scope set. Plaintext access and refresh tokens are never stored.
 
 ## Documents
 
-`documents` stores source file identity, content hashes, object keys, extraction status, optional document embedding, stable graph coordinates, searchable representation text, indexed content hash, and the latest ingestion error.
+`documents` stores source file identity, content hashes, object keys, extraction status, optional document embedding, stable graph coordinates, legacy searchable representation text, indexed content hash, and the latest ingestion error.
 
 For local folders, document identity prefers `platform:{platform_file_id}` when the desktop can
 provide one and falls back to `path:{relative_path}`. `document_metadata` preserves relative path,
@@ -44,6 +44,22 @@ their chunks are removed so stale embeddings are not searchable.
 
 `document_chunks` stores normalized extracted text slices with chunk ordinals, token counts, content hashes, metadata, and chunk embeddings.
 
+## Search Representations
+
+`search_representations` stores each searchable signal separately instead of collapsing filename,
+path, metadata, OCR text, captions, visual embeddings, and document text into one unexplained text
+field. Each row is scoped by `user_id` and `document_id`, optionally references a `chunk_id`, records
+the representation type, MIME type, source content, source confidence, embedding model/version,
+extractor or captioner version, content hash, embedding, metadata, and creation timestamp.
+
+Supported representation types are `document_text`, `ocr_text`, `image_caption`, `filename`,
+`file_path`, `metadata`, and `visual_embedding`. Re-indexing deletes obsolete representations for
+the document before inserting the current set, so stale filename, OCR, caption, or metadata signals
+cannot survive a successful re-index. Migration `0004_search_representation_provenance` backfills
+existing chunk vectors as `document_text` with `legacy_backfill` metadata; run
+`cd apps/api && ../../.venv/bin/alembic upgrade head`, then re-index sources normally to replace
+legacy rows with extractor-versioned provenance.
+
 ## Ingestion Jobs
 
 `ingestion_jobs` records retry-safe ingestion attempts. Status values are pending, running, succeeded, failed, and skipped. Failure code and message fields preserve useful operational detail without exposing file content in logs.
@@ -54,7 +70,9 @@ their chunks are removed so stale embeddings are not searchable.
 
 ## Embeddings
 
-The initial migration enables pgvector and reserves `vector(1536)` columns for document-level and chunk-level embeddings. Milestone two stores real Gemini chunk embeddings and a document-level searchable representation generated from filename, metadata, headings, and extracted content.
+The initial migration enables pgvector and reserves `vector(1536)` columns for document-level,
+chunk-level, and search-representation embeddings. Milestone two stores real Gemini chunk embeddings
+and representation embeddings generated from explicit source signals.
 
 ## Object Storage Keys
 

@@ -61,14 +61,41 @@ export type DocumentChunkContract = {
   textPreview: string;
 };
 
+export type SearchRepresentationType =
+  | "document_text"
+  | "ocr_text"
+  | "image_caption"
+  | "filename"
+  | "file_path"
+  | "metadata"
+  | "visual_embedding";
+
+export type SearchResultSignal = {
+  representation_id?: string;
+  chunk_id?: string | null;
+  type: SearchRepresentationType;
+  score: number;
+  raw_semantic_score?: number;
+  raw_text_score?: number;
+  matched_content?: string;
+  source_confidence?: number | null;
+  embedding_model?: string;
+  embedding_model_version?: string;
+  extractor_version?: string | null;
+  created_at?: string;
+  applied_weight?: number;
+  configured_weight?: number;
+  adjustments?: string[];
+  metadata?: Record<string, unknown>;
+};
+
 export type SearchResultExplanation = {
+  final_score?: number;
   semantic_score: number;
   text_score: number;
-  weights: {
-    semantic: number;
-    text: number;
-  };
-  signals: ("chunk_embedding_cosine_similarity" | "chunk_text_match")[];
+  matched_representation_type?: SearchRepresentationType;
+  has_extracted_text?: boolean;
+  signals: SearchResultSignal[];
 };
 
 export type SearchResultContract = {

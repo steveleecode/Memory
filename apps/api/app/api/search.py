@@ -57,6 +57,7 @@ async def search(
             user_id=authenticated.id,
             query=request.query,
             limit=request.limit,
+            settings=settings,
         )
     except (EmbeddingProviderError, ValueError):
         logger.warning(
@@ -68,6 +69,7 @@ async def search(
             user_id=authenticated.id,
             query=request.query,
             limit=request.limit,
+            settings=settings,
         )
     return SearchResponse(
         query=request.query,

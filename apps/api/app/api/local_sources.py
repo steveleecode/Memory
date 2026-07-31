@@ -14,7 +14,13 @@ from app.db.session import get_session
 from app.ingestion.embeddings import GeminiEmbeddingProvider
 from app.ingestion.hashing import sha256_bytes
 from app.ingestion.pipeline import ingest_document_content
-from app.models.document import Document, DocumentChunk, DocumentRelationship, DocumentStatus
+from app.models.document import (
+    Document,
+    DocumentChunk,
+    DocumentRelationship,
+    DocumentStatus,
+    SearchRepresentation,
+)
 from app.models.source import Source, SourceKind, SourceStatus
 
 router = APIRouter(prefix="/sources/local-folders", tags=["local-folders"])
@@ -377,6 +383,9 @@ async def _mark_document_deleted(session: AsyncSession, document: Document) -> N
         "deleted_at": datetime.now(UTC).isoformat(),
     }
     await session.execute(delete(DocumentChunk).where(DocumentChunk.document_id == document.id))
+    await session.execute(
+        delete(SearchRepresentation).where(SearchRepresentation.document_id == document.id)
+    )
     await session.execute(
         delete(DocumentRelationship).where(
             or_(

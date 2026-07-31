@@ -15,7 +15,11 @@ import {
   useState,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { SearchResponseContract, SearchResultContract } from "@memory/types";
+import type {
+  SearchResponseContract,
+  SearchResultContract,
+  SearchResultSignal,
+} from "@memory/types";
 import { pressElement, useEntranceMotion } from "./animations";
 import { Button } from "./Button";
 import { StatusPill } from "./StatusPill";
@@ -1799,7 +1803,7 @@ function ResultList({
             <h3>{result.title}</h3>
             <p>{sourceLabel(result)}</p>
             <p>{excerpt(result)}</p>
-            <span>{whyMatched(result)}</span>
+            <span>{matchBadge(result)}</span>
           </div>
           <div className="result-actions">
             <span>{relevanceLabel(result.score)}</span>
@@ -1862,6 +1866,10 @@ export function FileInspector({
         <p>{whyMatched(result)}</p>
         <dl className="signal-list">
           <div>
+            <dt>Match</dt>
+            <dd>{matchBadge(result)}</dd>
+          </div>
+          <div>
             <dt>Meaning</dt>
             <dd>{signalLabel(result.explanation.semantic_score)}</dd>
           </div>
@@ -1900,6 +1908,12 @@ export function FileInspector({
         <summary>Technical details</summary>
         <dl className="signal-list">
           {metadataRows.map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+          {signalMetadataRows(result).map(([label, value]) => (
             <div key={label}>
               <dt>{label}</dt>
               <dd>{value}</dd>
@@ -2532,6 +2546,8 @@ function technicalMetadata(result: SearchResultContract): [string, string][] {
     ["Document ID", result.document_id],
     ["MIME type", result.type],
     ["Index status", stringFrom(metadata.indexing_status)],
+    ["Final score", scoreString(result.explanation.final_score ?? result.score)],
+    ["Matched representation", matchBadge(result)],
     ["Relative path", stringFrom(metadata.relative_path)],
     ["Drive URL", driveWebUrl(result)],
     ["Source ID", stringFrom(metadata.source_id)],
@@ -2540,6 +2556,21 @@ function technicalMetadata(result: SearchResultContract): [string, string][] {
   return rows
     .filter((row): row is [string, string] => Boolean(row[1]))
     .map(([label, value]) => [label, value.length > 180 ? `${value.slice(0, 177)}...` : value]);
+}
+
+function signalMetadataRows(result: SearchResultContract): [string, string][] {
+  return result.explanation.signals.slice(0, 4).flatMap((signal, index) => {
+    const prefix = `Signal ${String(index + 1)}`;
+    const rows: [string, string | null][] = [
+      [`${prefix} type`, representationLabel(signal.type)],
+      [`${prefix} score`, scoreString(signal.score)],
+      [`${prefix} excerpt`, signal.matched_content ? truncate(signal.matched_content, 180) : null],
+      [`${prefix} OCR confidence`, scoreString(signal.source_confidence)],
+      [`${prefix} weight`, scoreString(signal.applied_weight)],
+      [`${prefix} adjustments`, signal.adjustments?.join(", ") ?? null],
+    ];
+    return rows.filter((row): row is [string, string] => Boolean(row[1]));
+  });
 }
 
 function fileTypeLabel(result: SearchResultContract) {
@@ -2564,20 +2595,49 @@ function excerpt(result: SearchResultContract) {
   return result.matching_excerpts[0] ?? "No extracted preview is available for this result.";
 }
 
-function whyMatched(result: SearchResultContract) {
+function matchBadge(result: SearchResultContract) {
   const signals = result.explanation.signals;
-  const semantic = result.explanation.semantic_score;
-  const text = result.explanation.text_score;
-  if (semantic >= 0.72 && text > 0) {
-    return "Matched by similar meaning and related text in the indexed content.";
+  const uniqueTypes = new Set(signals.map((signal) => signal.type));
+  if (uniqueTypes.size > 1) return "Multiple signals";
+  return representationLabel(
+    result.explanation.matched_representation_type ?? signals[0]?.type ?? "metadata",
+  );
+}
+
+function representationLabel(type: SearchResultSignal["type"]) {
+  switch (type) {
+    case "document_text":
+      return "Document text";
+    case "ocr_text":
+      return "OCR text";
+    case "image_caption":
+      return "Image description";
+    case "filename":
+      return "Filename";
+    case "file_path":
+      return "Folder or path";
+    case "metadata":
+      return "Metadata";
+    case "visual_embedding":
+      return "Visual similarity";
   }
-  if (semantic >= 0.72) {
-    return "Matched because the indexed content is semantically close to your query.";
+}
+
+function whyMatched(result: SearchResultContract) {
+  const label = matchBadge(result);
+  if (label === "Multiple signals") {
+    return "Matched by several indexed signals for this file.";
   }
-  if (signals.includes("chunk_text_match")) {
-    return "Matched because extracted text contains related terms.";
+  if (label === "Document text") {
+    return "Matched because extracted document text contributed to the ranking.";
   }
-  return "Matched by indexed source content and ranking signals from the search service.";
+  if (label === "OCR text") {
+    return "Matched because OCR text contributed above the configured confidence policy.";
+  }
+  if (label === "Visual similarity") {
+    return "Matched by visual similarity, not by extracted text.";
+  }
+  return `Matched by ${label.toLowerCase()} evidence.`;
 }
 
 function signalLabel(value: number) {
@@ -2591,6 +2651,10 @@ function relevanceLabel(score: number) {
   if (score >= 0.72) return "High relevance";
   if (score >= 0.48) return "Medium relevance";
   return "Low relevance";
+}
+
+function scoreString(value: number | null | undefined) {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(3) : null;
 }
 
 function driveWebUrl(result: SearchResultContract) {
