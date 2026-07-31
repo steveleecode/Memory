@@ -11,12 +11,24 @@ from app.auth import AuthenticatedUser
 from app.core.settings import Settings
 from app.ingestion.embeddings import EmbeddingProviderError
 from app.main import create_app
-from app.search.service import SearchResult, _excerpt, _row_to_result, _search_params, text_search
+from app.search.service import (
+    SearchResult,
+    _excerpt,
+    _row_to_result,
+    _search_params,
+    semantic_search,
+    text_search,
+)
 
 
 class FailingEmbeddingProvider:
     async def embed_texts(self, texts: Sequence[str]) -> list[tuple[float, ...]]:
         raise EmbeddingProviderError("provider unavailable")
+
+
+class StaticEmbeddingProvider:
+    async def embed_texts(self, texts: Sequence[str]) -> list[tuple[float, ...]]:
+        return [(0.1, 0.2, 0.3) for _ in texts]
 
 
 class FakeExecuteResult:
@@ -191,6 +203,9 @@ async def test_text_search_scopes_sources_and_does_not_return_chunk_text() -> No
     assert "JOIN sources s ON s.id = d.source_id AND s.user_id = :user_id" in session.statement
     assert "FROM search_representations sr" in session.statement
     assert "FROM document_chunks dc" not in session.statement
+    assert "CAST(:weight_document_text AS double precision)" in session.statement
+    assert "CAST(:strong_filename_text_rank AS double precision)" in session.statement
+    assert "CAST(:min_ocr_confidence AS double precision)" in session.statement
     assert session.params["query"] == "semantic roadmap"
     assert session.params["user_id"] == user_id
     assert session.params["limit"] == 3
@@ -198,6 +213,53 @@ async def test_text_search_scopes_sources_and_does_not_return_chunk_text() -> No
     assert results[0].score == 0.63
     assert results[0].matching_excerpts == ()
     assert results[0].explanation["matched_representation_type"] == "document_text"
+
+
+@pytest.mark.asyncio
+async def test_semantic_search_casts_weight_parameters_for_asyncpg() -> None:
+    user_id = uuid.uuid4()
+    session = RecordingSession(
+        [
+            {
+                "document_id": uuid.uuid4(),
+                "title": "roadmap.md",
+                "mime_type": "text/markdown",
+                "status": "indexed",
+                "document_metadata": {"source_filename": "roadmap.md"},
+                "source_kind": "local_folder",
+                "source_display_name": "Fixtures",
+                "source_metadata": {},
+                "final_score": 0.72,
+                "signal_count": 1,
+                "excerpts": ["semantic roadmap"],
+                "matched_representation_type": "document_text",
+                "signals": [
+                    {
+                        "type": "document_text",
+                        "score": 0.72,
+                        "raw_semantic_score": 0.8,
+                        "raw_text_score": 0.3,
+                        "matched_content": "semantic roadmap",
+                    }
+                ],
+            }
+        ]
+    )
+
+    results = await semantic_search(
+        session=session,  # type: ignore[arg-type]
+        embedding_provider=StaticEmbeddingProvider(),
+        user_id=user_id,
+        query="semantic roadmap",
+        limit=3,
+    )
+
+    assert results[0].score == 0.72
+    assert "CAST(:weight_document_text AS double precision)" in session.statement
+    assert "CAST(:weight_filename AS double precision)" in session.statement
+    assert "CAST(:semantic_weight AS double precision)" in session.statement
+    assert "CAST(:text_weight AS double precision)" in session.statement
+    assert "CAST(:min_image_single_signal_score AS double precision)" in session.statement
 
 
 def test_search_result_contains_machine_readable_explanation() -> None:

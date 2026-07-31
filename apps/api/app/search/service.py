@@ -57,14 +57,17 @@ async def semantic_search(
                             plainto_tsquery('english', :query)
                         ) AS text_rank,
                         CASE sr.representation_type::text
-                            WHEN 'document_text' THEN :weight_document_text
-                            WHEN 'ocr_text' THEN :weight_ocr_text
-                            WHEN 'filename' THEN :weight_filename
-                            WHEN 'file_path' THEN :weight_file_path
-                            WHEN 'metadata' THEN :weight_metadata
-                            WHEN 'image_caption' THEN :weight_image_caption
-                            WHEN 'visual_embedding' THEN :weight_visual_embedding
-                            ELSE :weight_metadata
+                            WHEN 'document_text'
+                                THEN CAST(:weight_document_text AS double precision)
+                            WHEN 'ocr_text' THEN CAST(:weight_ocr_text AS double precision)
+                            WHEN 'filename' THEN CAST(:weight_filename AS double precision)
+                            WHEN 'file_path' THEN CAST(:weight_file_path AS double precision)
+                            WHEN 'metadata' THEN CAST(:weight_metadata AS double precision)
+                            WHEN 'image_caption'
+                                THEN CAST(:weight_image_caption AS double precision)
+                            WHEN 'visual_embedding'
+                                THEN CAST(:weight_visual_embedding AS double precision)
+                            ELSE CAST(:weight_metadata AS double precision)
                         END AS configured_weight
                     FROM search_representations sr
                     WHERE sr.user_id = :user_id
@@ -77,11 +80,19 @@ async def semantic_search(
                         LEAST(COALESCE(text_rank, 0), 1.0) AS text_score,
                         CASE
                             WHEN representation_type IN ('filename', 'file_path')
-                                 AND COALESCE(text_rank, 0) >= :strong_filename_text_rank
-                                THEN GREATEST(configured_weight, :weight_filename)
+                                 AND COALESCE(text_rank, 0)
+                                     >= CAST(:strong_filename_text_rank AS double precision)
+                                THEN GREATEST(
+                                    configured_weight,
+                                    CAST(:weight_filename AS double precision)
+                                )
                             WHEN representation_type = 'ocr_text'
-                                 AND COALESCE(source_confidence, 0) < :min_ocr_confidence
-                                THEN LEAST(configured_weight, :low_ocr_weight)
+                                 AND COALESCE(source_confidence, 0)
+                                     < CAST(:min_ocr_confidence AS double precision)
+                                THEN LEAST(
+                                    configured_weight,
+                                    CAST(:low_ocr_weight AS double precision)
+                                )
                             WHEN representation_type = 'image_caption'
                                  AND lower(source_content) IN (
                                     'image',
@@ -91,13 +102,17 @@ async def semantic_search(
                                     'untitled image',
                                     'screen shot'
                                  )
-                                THEN LEAST(configured_weight, :generic_caption_weight)
+                                THEN LEAST(
+                                    configured_weight,
+                                    CAST(:generic_caption_weight AS double precision)
+                                )
                             ELSE configured_weight
                         END AS applied_weight,
                         array_remove(ARRAY[
                             CASE
                                 WHEN representation_type = 'ocr_text'
-                                     AND COALESCE(source_confidence, 0) < :min_ocr_confidence
+                                     AND COALESCE(source_confidence, 0)
+                                         < CAST(:min_ocr_confidence AS double precision)
                                     THEN 'low_confidence_ocr'
                             END,
                             CASE
@@ -118,8 +133,10 @@ async def semantic_search(
                 ranked_signals AS (
                     SELECT
                         *,
-                        ((semantic_score * :semantic_weight) + (text_score * :text_weight))
-                        * applied_weight AS signal_score
+                        (
+                            (semantic_score * CAST(:semantic_weight AS double precision))
+                            + (text_score * CAST(:text_weight AS double precision))
+                        ) * applied_weight AS signal_score
                     FROM scored_signals
                 ),
                 document_matches AS (
@@ -176,7 +193,8 @@ async def semantic_search(
                   AND NOT (
                     d.mime_type LIKE 'image/%'
                     AND document_matches.signal_count = 1
-                    AND document_matches.final_score < :min_image_single_signal_score
+                    AND document_matches.final_score
+                        < CAST(:min_image_single_signal_score AS double precision)
                   )
                 ORDER BY document_matches.final_score DESC, d.updated_at DESC
                 LIMIT :limit
@@ -225,14 +243,17 @@ async def text_search(
                             plainto_tsquery('english', :query)
                         ) AS text_rank,
                         CASE sr.representation_type::text
-                            WHEN 'document_text' THEN :weight_document_text
-                            WHEN 'ocr_text' THEN :weight_ocr_text
-                            WHEN 'filename' THEN :weight_filename
-                            WHEN 'file_path' THEN :weight_file_path
-                            WHEN 'metadata' THEN :weight_metadata
-                            WHEN 'image_caption' THEN :weight_image_caption
-                            WHEN 'visual_embedding' THEN :weight_visual_embedding
-                            ELSE :weight_metadata
+                            WHEN 'document_text'
+                                THEN CAST(:weight_document_text AS double precision)
+                            WHEN 'ocr_text' THEN CAST(:weight_ocr_text AS double precision)
+                            WHEN 'filename' THEN CAST(:weight_filename AS double precision)
+                            WHEN 'file_path' THEN CAST(:weight_file_path AS double precision)
+                            WHEN 'metadata' THEN CAST(:weight_metadata AS double precision)
+                            WHEN 'image_caption'
+                                THEN CAST(:weight_image_caption AS double precision)
+                            WHEN 'visual_embedding'
+                                THEN CAST(:weight_visual_embedding AS double precision)
+                            ELSE CAST(:weight_metadata AS double precision)
                         END AS configured_weight
                     FROM search_representations sr
                     WHERE sr.user_id = :user_id
@@ -245,11 +266,19 @@ async def text_search(
                         LEAST(COALESCE(text_rank, 0), 1.0) AS text_score,
                         CASE
                             WHEN representation_type IN ('filename', 'file_path')
-                                 AND COALESCE(text_rank, 0) >= :strong_filename_text_rank
-                                THEN GREATEST(configured_weight, :weight_filename)
+                                 AND COALESCE(text_rank, 0)
+                                     >= CAST(:strong_filename_text_rank AS double precision)
+                                THEN GREATEST(
+                                    configured_weight,
+                                    CAST(:weight_filename AS double precision)
+                                )
                             WHEN representation_type = 'ocr_text'
-                                 AND COALESCE(source_confidence, 0) < :min_ocr_confidence
-                                THEN LEAST(configured_weight, :low_ocr_weight)
+                                 AND COALESCE(source_confidence, 0)
+                                     < CAST(:min_ocr_confidence AS double precision)
+                                THEN LEAST(
+                                    configured_weight,
+                                    CAST(:low_ocr_weight AS double precision)
+                                )
                             ELSE configured_weight
                         END AS applied_weight
                     FROM text_matches
