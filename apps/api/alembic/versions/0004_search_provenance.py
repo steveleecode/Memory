@@ -1,6 +1,6 @@
 """search representation provenance
 
-Revision ID: 0004_search_representation_provenance
+Revision ID: 0004_search_provenance
 Revises: 0003_drive_statuses
 Create Date: 2026-07-31 12:00:00.000000
 """
@@ -12,7 +12,7 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-revision: str = "0004_search_representation_provenance"
+revision: str = "0004_search_provenance"
 down_revision: str | None = "0003_drive_statuses"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None

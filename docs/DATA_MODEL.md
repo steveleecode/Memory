@@ -55,7 +55,7 @@ extractor or captioner version, content hash, embedding, metadata, and creation 
 Supported representation types are `document_text`, `ocr_text`, `image_caption`, `filename`,
 `file_path`, `metadata`, and `visual_embedding`. Re-indexing deletes obsolete representations for
 the document before inserting the current set, so stale filename, OCR, caption, or metadata signals
-cannot survive a successful re-index. Migration `0004_search_representation_provenance` backfills
+cannot survive a successful re-index. Migration `0004_search_provenance` backfills
 existing chunk vectors as `document_text` with `legacy_backfill` metadata; run
 `cd apps/api && ../../.venv/bin/alembic upgrade head`, then re-index sources normally to replace
 legacy rows with extractor-versioned provenance.
