@@ -4,4 +4,6 @@ packages:
 allowBuilds:
   esbuild: true
 confirmModulesPurge: false
+minimumReleaseAgeExclude:
+  - "@react-three/fiber@9.7.0"
 verifyDepsBeforeRun: false

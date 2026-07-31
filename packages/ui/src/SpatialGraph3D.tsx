@@ -3,7 +3,15 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { useThree } from "@react-three/fiber";
 import { Line, OrbitControls, Text } from "@react-three/drei";
 import type { SearchResultContract } from "@memory/types";
-import { useEffect, useMemo, useRef, type ComponentRef, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentRef,
+  type RefObject,
+} from "react";
 import { gsap } from "gsap";
 import { prefersReducedMotion } from "./animations";
 import { cameraFocusTarget, type CameraVector } from "./spatialCamera";
@@ -40,12 +48,24 @@ export default function SpatialGraph3D({
   resetSignal,
 }: SpatialGraph3DProps) {
   const controlsRef = useRef<OrbitControlsHandle | null>(null);
+  const [contextGeneration, setContextGeneration] = useState(0);
+  const [contextLost, setContextLost] = useState(false);
+  const recoverContext = useCallback(() => {
+    setContextLost(false);
+    setContextGeneration((generation) => generation + 1);
+  }, []);
   return (
     <div className="graph-canvas" aria-label="Spatial relationship map">
-      <Canvas camera={{ position: [0, 0, 9], fov: 48 }} dpr={[1, 1.6]}>
+      <Canvas key={contextGeneration} camera={{ position: [0, 0, 9], fov: 48 }} dpr={[1, 1.6]}>
         <color attach="background" args={["#fbfaf7"]} />
         <ambientLight intensity={1.8} />
         <pointLight position={[3, 4, 6]} intensity={1.2} />
+        <WebGLContextRecovery
+          onContextLost={() => {
+            setContextLost(true);
+          }}
+          onContextRestored={recoverContext}
+        />
         <GraphScene
           points={points}
           selectedId={selectedId}
@@ -64,8 +84,37 @@ export default function SpatialGraph3D({
           maxPolarAngle={Math.PI / 2}
         />
       </Canvas>
+      {contextLost ? (
+        <div className="graph-canvas__status" role="status">
+          Restoring spatial map
+        </div>
+      ) : null}
     </div>
   );
+}
+
+function WebGLContextRecovery({
+  onContextLost,
+  onContextRestored,
+}: {
+  onContextLost: () => void;
+  onContextRestored: () => void;
+}) {
+  const { gl } = useThree();
+  useEffect(() => {
+    const canvas = gl.domElement;
+    function handleContextLost(event: Event) {
+      event.preventDefault();
+      onContextLost();
+    }
+    canvas.addEventListener("webglcontextlost", handleContextLost);
+    canvas.addEventListener("webglcontextrestored", onContextRestored);
+    return () => {
+      canvas.removeEventListener("webglcontextlost", handleContextLost);
+      canvas.removeEventListener("webglcontextrestored", onContextRestored);
+    };
+  }, [gl, onContextLost, onContextRestored]);
+  return null;
 }
 
 function GraphScene({
