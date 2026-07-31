@@ -110,6 +110,7 @@ async def _search(query: str, user_email: str, limit: int) -> None:
             user_id=user.id,
             query=query,
             limit=limit,
+            settings=settings,
         )
     print(
         json.dumps(

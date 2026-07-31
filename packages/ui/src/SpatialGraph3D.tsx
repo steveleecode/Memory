@@ -48,15 +48,22 @@ export default function SpatialGraph3D({
   resetSignal,
 }: SpatialGraph3DProps) {
   const controlsRef = useRef<OrbitControlsHandle | null>(null);
-  const [contextGeneration, setContextGeneration] = useState(0);
   const [contextLost, setContextLost] = useState(false);
   const recoverContext = useCallback(() => {
     setContextLost(false);
-    setContextGeneration((generation) => generation + 1);
   }, []);
   return (
     <div className="graph-canvas" aria-label="Spatial relationship map">
-      <Canvas key={contextGeneration} camera={{ position: [0, 0, 9], fov: 48 }} dpr={[1, 1.6]}>
+      <Canvas
+        camera={{ position: [0, 0, 9], fov: 48 }}
+        dpr={[1, 1.4]}
+        gl={{
+          alpha: false,
+          antialias: false,
+          powerPreference: "low-power",
+          preserveDrawingBuffer: false,
+        }}
+      >
         <color attach="background" args={["#fbfaf7"]} />
         <ambientLight intensity={1.8} />
         <pointLight position={[3, 4, 6]} intensity={1.2} />

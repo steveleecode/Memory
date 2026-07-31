@@ -3,7 +3,17 @@ from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -37,6 +47,16 @@ class RelationshipKind(StrEnum):
     SHARED_SOURCE = "shared_source"
     EXPLICIT_REFERENCE = "explicit_reference"
     TEMPORAL_NEIGHBOR = "temporal_neighbor"
+
+
+class SearchRepresentationType(StrEnum):
+    DOCUMENT_TEXT = "document_text"
+    OCR_TEXT = "ocr_text"
+    IMAGE_CAPTION = "image_caption"
+    FILENAME = "filename"
+    FILE_PATH = "file_path"
+    METADATA = "metadata"
+    VISUAL_EMBEDDING = "visual_embedding"
 
 
 class Document(Base):
@@ -85,6 +105,10 @@ class Document(Base):
         back_populates="document",
         cascade="all, delete-orphan",
     )
+    search_representations: Mapped[list["SearchRepresentation"]] = relationship(
+        back_populates="document",
+        cascade="all, delete-orphan",
+    )
     ingestion_jobs: Mapped[list["IngestionJob"]] = relationship(
         back_populates="document",
         cascade="all, delete-orphan",
@@ -115,6 +139,55 @@ class DocumentChunk(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     document: Mapped[Document] = relationship(back_populates="chunks")
+
+
+class SearchRepresentation(Base):
+    __tablename__ = "search_representations"
+    __table_args__ = (
+        UniqueConstraint(
+            "document_id",
+            "representation_type",
+            "chunk_id",
+            "content_hash",
+            name="uq_search_representations_identity",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        index=True,
+    )
+    chunk_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("document_chunks.id", ondelete="CASCADE"),
+        index=True,
+    )
+    representation_type: Mapped[SearchRepresentationType] = mapped_column(
+        Enum(
+            SearchRepresentationType,
+            name="search_representation_type",
+            values_callable=enum_values,
+        ),
+        nullable=False,
+        index=True,
+    )
+    mime_type: Mapped[str | None] = mapped_column(String(255))
+    source_content: Mapped[str] = mapped_column(Text, nullable=False)
+    source_confidence: Mapped[float | None] = mapped_column(Float)
+    embedding_model: Mapped[str] = mapped_column(String(255), nullable=False)
+    embedding_model_version: Mapped[str] = mapped_column(String(255), nullable=False)
+    extractor_version: Mapped[str | None] = mapped_column(String(255))
+    content_hash: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    embedding: Mapped[tuple[float, ...] | None] = mapped_column(Vector(1536))
+    representation_metadata: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    document: Mapped[Document] = relationship(back_populates="search_representations")
+    chunk: Mapped[DocumentChunk | None] = relationship()
 
 
 class IngestionJob(Base):

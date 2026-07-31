@@ -97,10 +97,29 @@ Response:
         "document_metadata": {}
       },
       "explanation": {
+        "final_score": 0.82,
         "semantic_score": 0.8,
         "text_score": 0.9,
-        "weights": { "semantic": 0.82, "text": 0.18 },
-        "signals": ["chunk_embedding_cosine_similarity", "chunk_text_match"]
+        "matched_representation_type": "document_text",
+        "has_extracted_text": true,
+        "signals": [
+          {
+            "representation_id": "00000000-0000-0000-0000-000000000001",
+            "chunk_id": "00000000-0000-0000-0000-000000000002",
+            "type": "document_text",
+            "score": 0.82,
+            "raw_semantic_score": 0.8,
+            "raw_text_score": 0.9,
+            "matched_content": "...",
+            "source_confidence": null,
+            "embedding_model": "gemini-embedding-2",
+            "embedding_model_version": "gemini-embedding-2",
+            "extractor_version": "memory.extractors.v1",
+            "applied_weight": 1.0,
+            "configured_weight": 1.0,
+            "adjustments": []
+          }
+        ]
       }
     }
   ]
@@ -118,8 +137,25 @@ Google Drive search results include `source_metadata.drive` when available:
 }
 ```
 
-Every search route embeds the query on the backend, filters by `user_id`, and excludes deleted
-documents.
+Every search route embeds the query on the backend, filters by `user_id`, searches
+`search_representations`, and excludes deleted documents. Result explanations must identify the
+matched representation type. UI labels should use `Document text`, `OCR text`, `Image description`,
+`Filename`, `Folder or path`, `Metadata`, `Visual similarity`, or `Multiple signals`; visual,
+filename, path, caption, and metadata matches must not be labeled as document-text matches.
+
+Signal weights are configurable with `MEMORY_SEARCH_WEIGHT_DOCUMENT_TEXT`,
+`MEMORY_SEARCH_WEIGHT_OCR_TEXT`, `MEMORY_SEARCH_WEIGHT_FILENAME`,
+`MEMORY_SEARCH_WEIGHT_FILE_PATH`, `MEMORY_SEARCH_WEIGHT_METADATA`,
+`MEMORY_SEARCH_WEIGHT_IMAGE_CAPTION`, `MEMORY_SEARCH_WEIGHT_VISUAL_EMBEDDING`,
+`MEMORY_SEARCH_MIN_OCR_CONFIDENCE`, `MEMORY_SEARCH_STRONG_FILENAME_TEXT_RANK`,
+`MEMORY_SEARCH_MIN_IMAGE_SINGLE_SIGNAL_SCORE`, and `MEMORY_SEARCH_INCLUDE_IMAGES`.
+The default trust order is document text, high-confidence OCR, strong filename/path evidence, image
+captions, and visual similarity for ordinary text queries. Low-confidence OCR and generic captions
+are down-ranked by named policy values rather than silently becoming text matches.
+
+Images are excluded from normal search results by default because legacy indexed image rows may have
+weak or misleading textual provenance. Set `MEMORY_SEARCH_INCLUDE_IMAGES=true` only when image
+retrieval has been deliberately enabled and inspected.
 
 ## Google Drive
 

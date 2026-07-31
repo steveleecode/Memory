@@ -68,7 +68,12 @@ Details are documented in [LOCAL_FOLDERS.md](/Users/stephenlee/Software%20Projec
 
 ## Retrieval
 
-Search combines metadata constraints, pgvector cosine nearest-neighbor search, and a text-match signal over indexed chunks. The current implementation embeds queries on the backend, searches only chunks belonging to the requested user, and returns scored document-level results with excerpts and machine-readable signal explanations.
+Search combines metadata constraints, pgvector cosine nearest-neighbor search, and text-match signals
+over explicit `search_representations`. The current implementation embeds queries on the backend,
+searches only representations belonging to the requested user, joins documents and sources with the
+same user scope, and returns scored document-level results with contributing signal explanations.
+Representation provenance prevents filenames, paths, metadata, image captions, visual embeddings,
+and OCR from being presented as generic document-text matches.
 
 AI answers remain out of scope. Future answers must be grounded in retrieved chunks and include citations.
 

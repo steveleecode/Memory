@@ -2022,6 +2022,11 @@ body {
   backdrop-filter: blur(22px);
 }
 
+.inspector {
+  background: rgb(255 254 250 / 0.96);
+  backdrop-filter: none;
+}
+
 .auth-panel {
   display: grid;
   gap: 16px;

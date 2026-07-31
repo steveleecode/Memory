@@ -24,6 +24,32 @@ class Settings(BaseSettings):
     embedding_dimensions: int = Field(default=1536, alias="GEMINI_EMBEDDING_DIMENSIONS")
     chunk_target_tokens: int = Field(default=500, alias="MEMORY_CHUNK_TARGET_TOKENS")
     chunk_overlap_tokens: int = Field(default=80, alias="MEMORY_CHUNK_OVERLAP_TOKENS")
+    search_weight_document_text: float = Field(
+        default=1.0,
+        alias="MEMORY_SEARCH_WEIGHT_DOCUMENT_TEXT",
+    )
+    search_weight_ocr_text: float = Field(default=0.88, alias="MEMORY_SEARCH_WEIGHT_OCR_TEXT")
+    search_weight_filename: float = Field(default=0.72, alias="MEMORY_SEARCH_WEIGHT_FILENAME")
+    search_weight_file_path: float = Field(default=0.62, alias="MEMORY_SEARCH_WEIGHT_FILE_PATH")
+    search_weight_metadata: float = Field(default=0.48, alias="MEMORY_SEARCH_WEIGHT_METADATA")
+    search_weight_image_caption: float = Field(
+        default=0.42,
+        alias="MEMORY_SEARCH_WEIGHT_IMAGE_CAPTION",
+    )
+    search_weight_visual_embedding: float = Field(
+        default=0.24,
+        alias="MEMORY_SEARCH_WEIGHT_VISUAL_EMBEDDING",
+    )
+    search_min_ocr_confidence: float = Field(default=0.82, alias="MEMORY_SEARCH_MIN_OCR_CONFIDENCE")
+    search_strong_filename_text_rank: float = Field(
+        default=0.08,
+        alias="MEMORY_SEARCH_STRONG_FILENAME_TEXT_RANK",
+    )
+    search_min_image_single_signal_score: float = Field(
+        default=0.55,
+        alias="MEMORY_SEARCH_MIN_IMAGE_SINGLE_SIGNAL_SCORE",
+    )
+    search_include_images: bool = Field(default=False, alias="MEMORY_SEARCH_INCLUDE_IMAGES")
     local_max_upload_bytes: int = Field(
         default=32 * 1024 * 1024,
         alias="MEMORY_LOCAL_MAX_UPLOAD_BYTES",
