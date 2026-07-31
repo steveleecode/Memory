@@ -147,11 +147,15 @@ Signal weights are configurable with `MEMORY_SEARCH_WEIGHT_DOCUMENT_TEXT`,
 `MEMORY_SEARCH_WEIGHT_OCR_TEXT`, `MEMORY_SEARCH_WEIGHT_FILENAME`,
 `MEMORY_SEARCH_WEIGHT_FILE_PATH`, `MEMORY_SEARCH_WEIGHT_METADATA`,
 `MEMORY_SEARCH_WEIGHT_IMAGE_CAPTION`, `MEMORY_SEARCH_WEIGHT_VISUAL_EMBEDDING`,
-`MEMORY_SEARCH_MIN_OCR_CONFIDENCE`, `MEMORY_SEARCH_STRONG_FILENAME_TEXT_RANK`, and
-`MEMORY_SEARCH_MIN_IMAGE_SINGLE_SIGNAL_SCORE`.
+`MEMORY_SEARCH_MIN_OCR_CONFIDENCE`, `MEMORY_SEARCH_STRONG_FILENAME_TEXT_RANK`,
+`MEMORY_SEARCH_MIN_IMAGE_SINGLE_SIGNAL_SCORE`, and `MEMORY_SEARCH_INCLUDE_IMAGES`.
 The default trust order is document text, high-confidence OCR, strong filename/path evidence, image
 captions, and visual similarity for ordinary text queries. Low-confidence OCR and generic captions
 are down-ranked by named policy values rather than silently becoming text matches.
+
+Images are excluded from normal search results by default because legacy indexed image rows may have
+weak or misleading textual provenance. Set `MEMORY_SEARCH_INCLUDE_IMAGES=true` only when image
+retrieval has been deliberately enabled and inspected.
 
 ## Google Drive
 

@@ -190,6 +190,11 @@ async def semantic_search(
                 JOIN sources s ON s.id = d.source_id AND s.user_id = :user_id
                 WHERE d.user_id = :user_id
                   AND d.status != 'deleted'
+                  AND (
+                    CAST(:include_images AS boolean)
+                    OR d.mime_type IS NULL
+                    OR d.mime_type NOT LIKE 'image/%'
+                  )
                   AND NOT (
                     d.mime_type LIKE 'image/%'
                     AND document_matches.signal_count = 1
@@ -337,6 +342,11 @@ async def text_search(
                 JOIN sources s ON s.id = d.source_id AND s.user_id = :user_id
                 WHERE d.user_id = :user_id
                   AND d.status != 'deleted'
+                  AND (
+                    CAST(:include_images AS boolean)
+                    OR d.mime_type IS NULL
+                    OR d.mime_type NOT LIKE 'image/%'
+                  )
                 ORDER BY document_matches.final_score DESC, d.updated_at DESC
                 LIMIT :limit
                 """
@@ -436,7 +446,7 @@ def _safe_excerpt_type(signals: list[dict[str, object]], excerpt: str) -> bool:
     return True
 
 
-def _search_params(settings: Settings) -> dict[str, float]:
+def _search_params(settings: Settings) -> dict[str, float | bool]:
     return {
         "semantic_weight": 0.82,
         "text_weight": 0.18,
@@ -452,6 +462,7 @@ def _search_params(settings: Settings) -> dict[str, float]:
         "low_ocr_weight": min(settings.search_weight_ocr_text, 0.18),
         "generic_caption_weight": min(settings.search_weight_image_caption, 0.12),
         "min_image_single_signal_score": settings.search_min_image_single_signal_score,
+        "include_images": settings.search_include_images,
     }
 
 

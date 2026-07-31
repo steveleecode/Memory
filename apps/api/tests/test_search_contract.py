@@ -206,6 +206,8 @@ async def test_text_search_scopes_sources_and_does_not_return_chunk_text() -> No
     assert "CAST(:weight_document_text AS double precision)" in session.statement
     assert "CAST(:strong_filename_text_rank AS double precision)" in session.statement
     assert "CAST(:min_ocr_confidence AS double precision)" in session.statement
+    assert "d.mime_type NOT LIKE 'image/%'" in session.statement
+    assert session.params["include_images"] is False
     assert session.params["query"] == "semantic roadmap"
     assert session.params["user_id"] == user_id
     assert session.params["limit"] == 3
@@ -260,6 +262,8 @@ async def test_semantic_search_casts_weight_parameters_for_asyncpg() -> None:
     assert "CAST(:semantic_weight AS double precision)" in session.statement
     assert "CAST(:text_weight AS double precision)" in session.statement
     assert "CAST(:min_image_single_signal_score AS double precision)" in session.statement
+    assert "d.mime_type NOT LIKE 'image/%'" in session.statement
+    assert session.params["include_images"] is False
 
 
 def test_search_result_contains_machine_readable_explanation() -> None:
@@ -448,6 +452,7 @@ def test_low_confidence_ocr_and_generic_caption_weights_are_named_configuration(
     assert "min_ocr_confidence" in params
     assert "min_image_single_signal_score" in params
     assert "strong_filename_text_rank" in params
+    assert params["include_images"] is False
 
 
 def search_row(

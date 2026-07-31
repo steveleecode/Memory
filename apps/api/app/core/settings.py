@@ -49,6 +49,7 @@ class Settings(BaseSettings):
         default=0.55,
         alias="MEMORY_SEARCH_MIN_IMAGE_SINGLE_SIGNAL_SCORE",
     )
+    search_include_images: bool = Field(default=False, alias="MEMORY_SEARCH_INCLUDE_IMAGES")
     local_max_upload_bytes: int = Field(
         default=32 * 1024 * 1024,
         alias="MEMORY_LOCAL_MAX_UPLOAD_BYTES",
