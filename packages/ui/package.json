@@ -17,7 +17,7 @@
   "dependencies": {
     "@memory/types": "workspace:*",
     "@react-three/drei": "^10.7.7",
-    "@react-three/fiber": "^9.6.1",
+    "@react-three/fiber": "^9.7.0",
     "@tauri-apps/api": "^2.6.0",
     "gsap": "^3.15.0",
     "react": "^19.1.1",

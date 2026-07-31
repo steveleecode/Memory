@@ -3,9 +3,20 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { useThree } from "@react-three/fiber";
 import { Line, OrbitControls, Text } from "@react-three/drei";
 import type { SearchResultContract } from "@memory/types";
-import { useEffect, useMemo } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentRef,
+  type RefObject,
+} from "react";
 import { gsap } from "gsap";
 import { prefersReducedMotion } from "./animations";
+import { cameraFocusTarget, type CameraVector } from "./spatialCamera";
+
+type OrbitControlsHandle = ComponentRef<typeof OrbitControls>;
 
 export type SpatialPoint = {
   result: SearchResultContract;
@@ -25,6 +36,7 @@ export type SpatialGraph3DProps = {
   hoveredId: string | null;
   setSelectedId: (id: string) => void;
   setHoveredId: (id: string | null) => void;
+  resetSignal: number;
 };
 
 export default function SpatialGraph3D({
@@ -33,21 +45,38 @@ export default function SpatialGraph3D({
   hoveredId,
   setSelectedId,
   setHoveredId,
+  resetSignal,
 }: SpatialGraph3DProps) {
+  const controlsRef = useRef<OrbitControlsHandle | null>(null);
+  const [contextGeneration, setContextGeneration] = useState(0);
+  const [contextLost, setContextLost] = useState(false);
+  const recoverContext = useCallback(() => {
+    setContextLost(false);
+    setContextGeneration((generation) => generation + 1);
+  }, []);
   return (
     <div className="graph-canvas" aria-label="Spatial relationship map">
-      <Canvas camera={{ position: [0, 0, 9], fov: 48 }} dpr={[1, 1.6]}>
+      <Canvas key={contextGeneration} camera={{ position: [0, 0, 9], fov: 48 }} dpr={[1, 1.6]}>
         <color attach="background" args={["#fbfaf7"]} />
         <ambientLight intensity={1.8} />
         <pointLight position={[3, 4, 6]} intensity={1.2} />
+        <WebGLContextRecovery
+          onContextLost={() => {
+            setContextLost(true);
+          }}
+          onContextRestored={recoverContext}
+        />
         <GraphScene
           points={points}
           selectedId={selectedId}
           hoveredId={hoveredId}
           setSelectedId={setSelectedId}
           setHoveredId={setHoveredId}
+          controlsRef={controlsRef}
+          resetSignal={resetSignal}
         />
         <OrbitControls
+          ref={controlsRef}
           enableDamping
           dampingFactor={0.12}
           maxDistance={14}
@@ -55,8 +84,37 @@ export default function SpatialGraph3D({
           maxPolarAngle={Math.PI / 2}
         />
       </Canvas>
+      {contextLost ? (
+        <div className="graph-canvas__status" role="status">
+          Restoring spatial map
+        </div>
+      ) : null}
     </div>
   );
+}
+
+function WebGLContextRecovery({
+  onContextLost,
+  onContextRestored,
+}: {
+  onContextLost: () => void;
+  onContextRestored: () => void;
+}) {
+  const { gl } = useThree();
+  useEffect(() => {
+    const canvas = gl.domElement;
+    function handleContextLost(event: Event) {
+      event.preventDefault();
+      onContextLost();
+    }
+    canvas.addEventListener("webglcontextlost", handleContextLost);
+    canvas.addEventListener("webglcontextrestored", onContextRestored);
+    return () => {
+      canvas.removeEventListener("webglcontextlost", handleContextLost);
+      canvas.removeEventListener("webglcontextrestored", onContextRestored);
+    };
+  }, [gl, onContextLost, onContextRestored]);
+  return null;
 }
 
 function GraphScene({
@@ -65,7 +123,11 @@ function GraphScene({
   hoveredId,
   setSelectedId,
   setHoveredId,
-}: Omit<SpatialGraph3DProps, "fallback">) {
+  controlsRef,
+  resetSignal,
+}: SpatialGraph3DProps & {
+  controlsRef: RefObject<OrbitControlsHandle | null>;
+}) {
   const center = points[0];
   const selectedPoint = points.find((point) => point.result.document_id === selectedId) ?? center;
   const connectedIds = useMemo(() => {
@@ -76,7 +138,11 @@ function GraphScene({
   }, [center, selectedId]);
   return (
     <group>
-      <CameraFocus point={selectedPoint ?? null} />
+      <CameraFocus
+        controlsRef={controlsRef}
+        point={selectedPoint ?? null}
+        resetSignal={resetSignal}
+      />
       {center
         ? points.slice(1).map((point) => {
             const isSelectedEdge = point.result.document_id === selectedId;
@@ -158,22 +224,50 @@ function GraphScene({
   );
 }
 
-function CameraFocus({ point }: { point: SpatialPoint | null }) {
+function applyOrbitTarget(controls: OrbitControlsHandle | null, target: CameraVector) {
+  controls?.target.set(target.x, target.y, target.z);
+  controls?.update();
+}
+
+function CameraFocus({
+  point,
+  controlsRef,
+  resetSignal,
+}: {
+  point: SpatialPoint | null;
+  controlsRef: RefObject<OrbitControlsHandle | null>;
+  resetSignal: number;
+}) {
   const { camera } = useThree();
+  const hasMountedRef = useRef(false);
   useEffect(() => {
     if (!point || prefersReducedMotion()) return;
-    gsap.to(camera.position, {
-      x: point.x3 * 0.28,
-      y: point.y3 * 0.28,
-      z: 8.2,
+    const focus = cameraFocusTarget(point);
+    const tween = gsap.to(camera.position, {
+      ...focus.position,
       duration: 0.52,
       ease: "power3.out",
       overwrite: true,
       onUpdate: () => {
-        camera.lookAt(point.x3 * 0.18, point.y3 * 0.18, point.z3);
+        applyOrbitTarget(controlsRef.current, focus.target);
+        camera.lookAt(focus.target.x, focus.target.y, focus.target.z);
       },
     });
-  }, [camera, point]);
+    return () => {
+      tween.kill();
+    };
+  }, [camera, controlsRef, point]);
+
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
+    const focus = cameraFocusTarget(null);
+    camera.position.set(focus.position.x, focus.position.y, focus.position.z);
+    applyOrbitTarget(controlsRef.current, focus.target);
+    camera.lookAt(focus.target.x, focus.target.y, focus.target.z);
+  }, [camera, controlsRef, resetSignal]);
   return null;
 }
 
