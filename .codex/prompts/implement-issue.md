@@ -30,10 +30,10 @@ gh repo view --json nameWithOwner,defaultBranchRef
 
 Stop and clearly report the blocker if:
 
-* This is not a Git repository.
-* The GitHub remote is unavailable.
-* `gh` is not authenticated.
-* The repository cannot be accessed.
+- This is not a Git repository.
+- The GitHub remote is unavailable.
+- `gh` is not authenticated.
+- The repository cannot be accessed.
 
 ### 2. Resolve the issue number
 
@@ -89,12 +89,12 @@ Do not work directly on the default branch.
 
 Before changing code:
 
-* Read `AGENTS.md`.
-* Inspect the relevant architecture and existing patterns.
-* Locate the files related to the issue.
-* Identify existing tests covering the affected behavior.
-* Review recent related commits when useful.
-* Form a concise implementation plan.
+- Read `AGENTS.md`.
+- Inspect the relevant architecture and existing patterns.
+- Locate the files related to the issue.
+- Identify existing tests covering the affected behavior.
+- Review recent related commits when useful.
+- Form a concise implementation plan.
 
 Avoid unrelated refactors.
 
@@ -104,14 +104,14 @@ Implement every stated requirement and acceptance criterion.
 
 Follow these rules:
 
-* Preserve existing architecture and conventions.
-* Maintain strict per-user data isolation.
-* Do not add unlabeled mock behavior.
-* Do not expose secrets or sensitive data.
-* Add or update relevant tests.
-* Update documentation when behavior or setup changes.
-* Do not weaken or delete legitimate tests merely to make checks pass.
-* Modify unrelated files only when strictly necessary.
+- Preserve existing architecture and conventions.
+- Maintain strict per-user data isolation.
+- Do not add unlabeled mock behavior.
+- Do not expose secrets or sensitive data.
+- Add or update relevant tests.
+- Update documentation when behavior or setup changes.
+- Do not weaken or delete legitimate tests merely to make checks pass.
+- Modify unrelated files only when strictly necessary.
 
 ### 7. Verify the implementation
 
@@ -189,21 +189,21 @@ git ls-remote --exit-code --heads origin "$BRANCH"
 
 If the push fails:
 
-* Read the exact error.
-* Attempt reasonable authentication or upstream fixes.
-* Do not push directly to the default branch.
-* Do not claim completion.
-* Report the unresolved blocker exactly.
+- Read the exact error.
+- Attempt reasonable authentication or upstream fixes.
+- Do not push directly to the default branch.
+- Do not claim completion.
+- Report the unresolved blocker exactly.
 
 ### 10. Open the pull request
 
 Prepare a pull request body that includes:
 
-* Summary of the implementation.
-* Important technical decisions.
-* Tests and checks run.
-* Remaining limitations or risks.
-* `Closes #<issue-number>`.
+- Summary of the implementation.
+- Important technical decisions.
+- Tests and checks run.
+- Remaining limitations or risks.
+- `Closes #<issue-number>`.
 
 Create the pull request non-interactively:
 
@@ -268,12 +268,12 @@ gh pr view "$BRANCH" \
 
 Your final response must include:
 
-* Issue number and title.
-* Summary of what was implemented.
-* Branch name.
-* Commit SHA.
-* Tests and checks run, with results.
-* Pull request URL.
-* Any remaining limitations or blockers.
+- Issue number and title.
+- Summary of what was implemented.
+- Branch name.
+- Commit SHA.
+- Tests and checks run, with results.
+- Pull request URL.
+- Any remaining limitations or blockers.
 
 If no pull request URL exists, the task is not complete.
